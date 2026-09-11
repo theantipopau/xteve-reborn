@@ -7,6 +7,46 @@ function escapeHTML(value) {
     div.textContent = value;
     return div.innerHTML;
 }
+// showToast replaces the old native alert() popups, which block the whole
+// page until dismissed and look jarring next to the rest of the UI. Errors
+// stay up longer than informational messages since they're more likely to
+// need re-reading; any toast can also be dismissed early with a click.
+function showToast(message, type, duration) {
+    if (!message) {
+        return;
+    }
+    if (!type) {
+        type = "error";
+    }
+    if (!duration) {
+        duration = (type == "error") ? 8000 : 5000;
+    }
+    var container = document.getElementById("toast-container");
+    if (!container) {
+        container = document.createElement("DIV");
+        container.id = "toast-container";
+        document.body.appendChild(container);
+    }
+    var toast = document.createElement("DIV");
+    toast.className = "toast toast-" + type;
+    toast.textContent = message;
+    var dismissed = false;
+    var dismiss = function () {
+        if (dismissed) {
+            return;
+        }
+        dismissed = true;
+        toast.className += " toast-closing";
+        setTimeout(function () {
+            if (toast.parentNode) {
+                toast.parentNode.removeChild(toast);
+            }
+        }, 200);
+    };
+    toast.onclick = dismiss;
+    container.appendChild(toast);
+    setTimeout(dismiss, duration);
+}
 var SERVER = new Object();
 var BULK_EDIT = false;
 var COLUMN_TO_SORT;
@@ -300,7 +340,7 @@ function changeChannelNumber(element) {
     var data = SERVER["xepg"]["epgMapping"];
     var channels = getObjKeys(data);
     if (isNaN(newNumber)) {
-        alert("{{.alert.invalidChannelNumber}}");
+        showToast("{{.alert.invalidChannelNumber}}", "error");
         return;
     }
     channels.forEach(function (id) {
@@ -357,7 +397,7 @@ function toggleChannelStatus(id) {
             case true:
                 if (channel["x-xmltv-file"] == "-" || channel["x-mapping"] == "-") {
                     if (BULK_EDIT == false) {
-                        alert(channel["x-name"] + ": Missing XMLTV file / channel");
+                        showToast(channel["x-name"] + ": Missing XMLTV file / channel", "warning");
                         checkbox.checked = false;
                     }
                     channel["x-active"] = false;
@@ -404,7 +444,7 @@ function restore() {
                 };
             }
             else {
-                alert("File could not be loaded");
+                showToast("File could not be loaded", "error");
             }
             restore.remove();
             return;
@@ -423,9 +463,6 @@ function uploadLogo() {
     upload.id = "upload";
     document.body.appendChild(upload);
     upload.click();
-    upload.onblur = function () {
-        alert();
-    };
     upload.onchange = function () {
         var filename = upload.files[0].name;
         var reader = new FileReader();
@@ -446,7 +483,7 @@ function uploadLogo() {
             };
         }
         else {
-            alert("File could not be loaded");
+            showToast("File could not be loaded", "error");
         }
         upload.remove();
         return;

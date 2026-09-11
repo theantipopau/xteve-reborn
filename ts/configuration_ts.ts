@@ -144,7 +144,7 @@ function saveWizard() {
 
             if (value.length == 0) {
               var msg = name.toUpperCase() + ": " + "{{.alert.missingInput}}"
-              alert(msg)
+              showToast(msg, "error")
               return
             }
 

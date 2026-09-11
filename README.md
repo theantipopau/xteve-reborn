@@ -169,6 +169,14 @@ data at all.
   (see the "Plex / Emby connection & streaming reliability" section above) — the checkbox hasn't
   done anything since that change. Removed it rather than leave a control that lies about what it
   controls.
+* **Replaced native `alert()` popups with toast notifications.** Blocking browser alerts looked
+  jarring next to the rest of the redesigned UI and stop all interaction until dismissed. Added a
+  small toast system (color-coded by severity, auto-dismissing, click to close now) and swapped
+  every real alert over to it. While auditing every call site, found three that had nothing useful
+  to say: a password-confirmation check that alerted the literal placeholder text `"sdafsd"`
+  instead of the real inline error message it already sets, and two blank `alert()` calls (one
+  fired every time a file picker was dismissed without choosing a file) that just popped an empty
+  dialog for no reason. All three were dead debug leftovers - removed rather than converted.
 
 ---
 

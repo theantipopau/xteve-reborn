@@ -121,7 +121,7 @@ function saveWizard() {
                         value = config[i].value;
                         if (value.length == 0) {
                             var msg = name.toUpperCase() + ": " + "{{.alert.missingInput}}";
-                            alert(msg);
+                            showToast(msg, "error");
                             return;
                         }
                         wizard[name] = value;

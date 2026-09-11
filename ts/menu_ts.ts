@@ -501,10 +501,6 @@ class Content {
 
         break
 
-      case "settings":
-        alert()
-        break
-
       default:
         console.log("Table content (menuKey):", menuKey);
         

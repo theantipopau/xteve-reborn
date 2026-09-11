@@ -420,9 +420,6 @@ var Content = /** @class */ (function () {
                     rows.push(tr);
                 });
                 break;
-            case "settings":
-                alert();
-                break;
             default:
                 console.log("Table content (menuKey):", menuKey);
                 break;

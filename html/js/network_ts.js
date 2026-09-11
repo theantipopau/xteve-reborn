@@ -52,7 +52,7 @@ var Server = /** @class */ (function () {
                 LOG_POLL_CONNECTION = false;
             } else {
                 SERVER_CONNECTION = false;
-                alert("xTeVe did not respond in time. Please try again.");
+                showToast("xTeVe did not respond in time. Please try again.", "error");
             }
             showElement("loading", false);
             ws.close();
@@ -79,7 +79,7 @@ var Server = /** @class */ (function () {
             }
             showElement("loading", false);
             if (WS_AVAILABLE == false && isBackgroundPoll == false) {
-                alert("No websocket connection to xTeVe could be established. Check your network configuration.");
+                showToast("No websocket connection to xTeVe could be established. Check your network configuration.", "error");
             }
         };
         ws.onmessage = function (e) {
@@ -101,9 +101,12 @@ var Server = /** @class */ (function () {
                 document.cookie = "Token=" + response["token"];
             }
             if (response["status"] == false) {
-                alert(response["err"]);
+                showToast(response["err"], "error");
                 if (response.hasOwnProperty("reload")) {
-                    location.reload();
+                    // A toast isn't blocking like the alert() it replaced, so an
+                    // immediate reload would wipe it before it's readable - give it a
+                    // moment on screen first.
+                    setTimeout(function () { location.reload(); }, 1500);
                 }
                 return;
             }
@@ -134,11 +137,13 @@ var Server = /** @class */ (function () {
             if (response.hasOwnProperty("openLink")) {
                 window.location = response["openLink"];
             }
+            var alertShown = false;
             if (response.hasOwnProperty("alert")) {
-                alert(response["alert"]);
+                showToast(response["alert"], "info");
+                alertShown = true;
             }
             if (response.hasOwnProperty("reload")) {
-                location.reload();
+                setTimeout(function () { location.reload(); }, alertShown ? 1500 : 0);
             }
             if (response.hasOwnProperty("wizard")) {
                 createLayout();
