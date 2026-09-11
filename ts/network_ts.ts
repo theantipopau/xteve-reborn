@@ -8,23 +8,37 @@ class Server {
 
   request(data:Object):any {
 
-    if (SERVER_CONNECTION == true) {
-      return
+    // The periodic background log poll (every 10s, see menu_ts.ts) used to
+    // share the same SERVER_CONNECTION lock as every user-initiated action.
+    // Any click that landed while a poll was in flight was silently
+    // dropped - no error, no feedback, just an unresponsive button until
+    // the next poll cycle happened to leave a gap. It gets its own lock so
+    // it can never block real user interactions.
+    var isBackgroundPoll = (this.cmd == "updateLog")
+
+    if (isBackgroundPoll) {
+      if (LOG_POLL_CONNECTION == true) {
+        return
+      }
+      LOG_POLL_CONNECTION = true
+    } else {
+      if (SERVER_CONNECTION == true) {
+        return
+      }
+      SERVER_CONNECTION = true
     }
 
-    SERVER_CONNECTION = true
-    
     console.log(data)
     if (this.cmd != "updateLog") {
       showElement("loading", true)
       UNDO = new Object()
     }
-    
+
     switch(window.location.protocol) {
-      case "http:": 
+      case "http:":
         this.protocol = "ws://"
         break
-      case "https:": 
+      case "https:":
         this.protocol = "wss://"
         break
     }
@@ -33,6 +47,31 @@ class Server {
 
     data["cmd"] = this.cmd
     var ws = new WebSocket(url)
+
+    // A request that never gets a response (dropped connection, server
+    // restart mid-request, flaky network) used to leave SERVER_CONNECTION
+    // stuck at true forever, silently freezing every subsequent click in
+    // the UI with no explanation until the page was reloaded. This timeout
+    // guarantees the lock is released and the user is told what happened.
+    var settled = false
+    var timeout = window.setTimeout(function() {
+
+      if (settled == true) {
+        return
+      }
+
+      settled = true
+      if (isBackgroundPoll) {
+        LOG_POLL_CONNECTION = false
+      } else {
+        SERVER_CONNECTION = false
+        alert("xTeVe did not respond in time. Please try again.")
+      }
+      showElement("loading", false)
+      ws.close()
+
+    }, 15000)
+
     ws.onopen = function() {
 
       WS_AVAILABLE = true
@@ -44,15 +83,27 @@ class Server {
       console.log(JSON.stringify(data))
 
       this.send(JSON.stringify(data));
-      
+
     }
 
     ws.onerror = function(e) {
-      
-      console.log("No websocket connection to xTeVe could be established. Check your network configuration.")
-      SERVER_CONNECTION = false
 
-      if (WS_AVAILABLE == false) {
+      if (settled == true) {
+        return
+      }
+      settled = true
+      window.clearTimeout(timeout)
+
+      console.log("No websocket connection to xTeVe could be established. Check your network configuration.")
+
+      if (isBackgroundPoll) {
+        LOG_POLL_CONNECTION = false
+      } else {
+        SERVER_CONNECTION = false
+      }
+      showElement("loading", false)
+
+      if (WS_AVAILABLE == false && isBackgroundPoll == false) {
         alert("No websocket connection to xTeVe could be established. Check your network configuration.")
       }
 
@@ -60,8 +111,18 @@ class Server {
 
 
     ws.onmessage = function (e) {
-      
-      SERVER_CONNECTION = false
+
+      if (settled == true) {
+        return
+      }
+      settled = true
+      window.clearTimeout(timeout)
+
+      if (isBackgroundPoll) {
+        LOG_POLL_CONNECTION = false
+      } else {
+        SERVER_CONNECTION = false
+      }
       showElement("loading", false)
 
       console.log("RESPONSE:");

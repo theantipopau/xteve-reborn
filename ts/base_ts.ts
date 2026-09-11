@@ -4,6 +4,7 @@ var COLUMN_TO_SORT:number
 var SEARCH_MAPPING = new Object()
 var UNDO = new Object()
 var SERVER_CONNECTION = false
+var LOG_POLL_CONNECTION = false
 var WS_AVAILABLE = false
 
 

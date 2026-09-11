@@ -72,8 +72,26 @@ Upstream's last tagged release was `2.2.0`, from 2021. Everything below is new i
 * New logo and favicon (`html/img/logo-reborn*.png`, `favicon-*.png`) wired into every page,
   including the login/first-run/setup-wizard screens, which previously showed no logo at all
   (`#header.imgCenter` existed in the markup but had never been styled)
-* No functional/JS behavior changed — every element ID and class the UI's TypeScript relies on
-  was left intact, only the visual styling
+* No markup/JS behavior changed by the visual refresh itself — every element ID and class the
+  UI's TypeScript relies on was left intact, only the styling
+
+#### UI/UX reliability
+* **Found and fixed a silent-freeze race condition**: the whole web UI serializes every
+  server request through one global "connection in flight" lock (`SERVER_CONNECTION`), and a
+  background log poll (`updateLog`, firing every 10 seconds) shared that exact same lock with
+  every user-initiated action. Any click — opening a mapping/user/file popup, Save, Bulk Edit —
+  that happened to land while a poll was mid-flight was silently dropped: no error, no
+  indication anything happened, just an unresponsive button until the next poll cycle left a
+  gap. The log poll now has its own independent lock, so it can never block a real interaction.
+  Found this by reading `network_ts.ts`/`menu_ts.ts` after reproducing exactly this symptom
+  while testing the mapping editor.
+* Added a client-side request timeout (15s): previously, a request that never got a response —
+  dropped connection, server restarting mid-request — left the UI-wide lock stuck forever with
+  no explanation, requiring a full page reload to recover. It now releases the lock and tells
+  the user what happened.
+* Set up a working TypeScript build (`ts/*.ts` → `html/js/*_ts.js`) to verify these fixes compile
+  cleanly and match the project's existing compiled-output conventions, since the repo didn't
+  have a documented, reproducible way to do this before.
 
 ---
 
