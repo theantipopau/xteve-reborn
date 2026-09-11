@@ -159,7 +159,6 @@ func searchFileInOS(file string) (path string) {
 	return
 }
 
-//
 func removeChildItems(dir string) error {
 
 	files, err := filepath.Glob(filepath.Join(dir, "*"))

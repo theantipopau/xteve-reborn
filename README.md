@@ -1,16 +1,15 @@
-<div align="center" style="background-color: #111; padding: 100;">
-    <a href="https://github.com/xteve-project/xTeVe"><img width="880" height="200" src="html/img/logo_b_880x200.jpg" alt="xTeVe" /></a>
-</div>
-<br>
+# xteve-reborn
+## M3U Proxy for Plex DVR and Emby Live TV.
 
-# xTeVe
-## M3U Proxy for Plex DVR and Emby Live TV.  
+A standalone, personally-maintained fork of [xteve-project/xteve](https://github.com/xteve-project/xteve),
+started to modernize the toolchain, fix bugs, refresh the UI, and add features on top of the
+original project. Not affiliated with the upstream xTeVe project.
 
-Documentation for setup and configuration is [here](https://github.com/xteve-project/xTeVe-Documentation/blob/master/en/configuration.md).
+Original documentation for setup and configuration (still largely applicable) is
+[here](https://github.com/xteve-project/xTeVe-Documentation/blob/master/en/configuration.md).
 
-#### Donation
-* **Bitcoin:** 1c1iCe4CJPfNUXtqxKBbW2Qd2EtqRPWme  
-![Bitcoin](html/img/BC-QR.jpg "Bitcoin - xTeVe")
+The built-in self-updater is disabled in this fork (see `xteve.go`) — updates come from
+this repo's own commits/releases, not upstream's binaries.
 
 ## Requirements
 ### Plex
@@ -48,18 +47,10 @@ Documentation for setup and configuration is [here](https://github.com/xteve-pro
 
 ---
 
-## Downloads v2 | 64 Bit only
-#### 64 Bit Intel / AMD
+## Downloads
+This fork does not (yet) publish prebuilt binaries — build from source (below).
 
-* [Windows](https://github.com/xteve-project/xTeVe-Downloads/blob/master/xteve_windows_amd64.zip?raw=true)
-* [OS X](https://github.com/xteve-project/xTeVe-Downloads/blob/master/xteve_darwin_amd64.zip?raw=true)
-* [Linux](https://github.com/xteve-project/xTeVe-Downloads/blob/master/xteve_linux_amd64.zip?raw=true)
-* [FreeBSD](https://github.com/xteve-project/xTeVe-Downloads/blob/master/xteve_freebsd_amd64.zip?raw=true)
-
-#### 64 Bit ARM
-* [Linux](https://github.com/xteve-project/xTeVe-Downloads/blob/master/xteve_linux_arm64.zip?raw=true)
-
-#### Recommended Docker Image (Linux 64 Bit)
+#### Docker images from the original project (Linux 64 Bit)
 Thanks to @alturismo and @LeeD for creating the Docker Images.
 
 **Created by alturismo:**  
@@ -83,77 +74,15 @@ Including:
 
 ---
 
-### xTeVe Beta branch
-New features and bug fixes are only available in beta branch. Only after successful testing are they are merged into the master branch.
-
-**It is not recommended to use the beta version in a production system.**  
-
-With the command line argument `branch` the Git Branch can be changed. xTeVe must be started via the terminal.  
-
-#### Switch from master to beta branch:
-```
-xteve -branch beta
-
-...
-[xTeVe] GitHub:                https://github.com/xteve-project
-[xTeVe] Git Branch:            beta [xteve-project]
-...
-```
-
-#### Switch from beta to master branch:
-```
-xteve -branch master
-
-...
-[xTeVe] GitHub:                https://github.com/xteve-project
-[xTeVe] Git Branch:            master [xteve-project]
-...
-```
-
-When the branch is changed, an update is only performed if there is a new version and the update function is activated in the settings.  
-
----
-
 ## Build from source code [Go / Golang]
 
 #### Requirements
-* [Go](https://golang.org) (go1.16.2 or newer)
-
-#### Dependencies
-* [go-ssdp](https://github.com/koron/go-ssdp)
-* [websocket](https://github.com/gorilla/websocket)
-* [osext](https://github.com/kardianos/osext)
+* [Go](https://golang.org) 1.24 or newer
 
 #### Build
-1. Download source code
-2. Install dependencies
 ```
-go get github.com/koron/go-ssdp
-go get github.com/gorilla/websocket
-go get github.com/kardianos/osext
-```
-3. Build xTeVe
-```
-go build xteve.go
+go build .
 ```
 
 ---
-
-## Fork without pull request :mega:
-When creating a fork, the xTeVe GitHub account must be changed from the source code or the update function disabled.
-Future updates of the xteve-project would update your fork. :wink:
-
-xteve.go - Line: 29
-```Go
-var GitHub = GitHubStruct{Branch: "master", User: "xteve-project", Repo: "xTeVe-Downloads", Update: true}
-
-/*
-  Branch: GitHub Branch
-  User:   GitHub Username
-  Repo:   GitHub Repository
-  Update: Automatic updates from the GitHub repository [true|false]
-*/
-
-```
-
 

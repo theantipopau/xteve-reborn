@@ -25,7 +25,7 @@ type ClientInfo struct {
 	Response ServerResponse `json:"response,omitempty"`
 }
 
-//ServerResponse : Response from server after client request
+// ServerResponse : Response from server after client request
 type ServerResponse struct {
 	Status    bool   `json:"status,omitempty"`
 	Reason    string `json:"reason,omitempty"`
