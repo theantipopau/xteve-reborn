@@ -3,7 +3,7 @@
 </p>
 
 # xteve-reborn
-## M3U Proxy for Plex DVR and Emby Live TV.
+## M3U Proxy for Plex DVR, Emby Live TV, and Jellyfin Live TV.
 
 A standalone, personally-maintained fork of [xteve-project/xteve](https://github.com/xteve-project/xteve),
 started because upstream hadn't seen a real release in about five years. This fork modernizes the
@@ -124,6 +124,26 @@ the ones that still apply:
 * A few missing `resp.Body.Close()` calls and a defer-inside-a-loop that held every image-cache
   download's file handle open until the whole batch finished instead of per-item.
 
+#### Ported from Threadfin
+[Threadfin](https://github.com/Threadfin/Threadfin) is a more actively-developed community fork
+of xTeVe (1.7k+ stars, regular releases, adds Jellyfin support). Rather than switching to it
+wholesale, brought over the pieces that fit this fork's own architecture:
+* **Backup/failover channels** — up to 3 backup stream URLs per channel. A lightweight
+  reachability check picks the first one that actually responds (primary first) before a client
+  connects, so a dead primary provider doesn't mean a dead channel. Channels with no backups
+  configured pay no cost — the check is skipped entirely.
+* **Jellyfin listed as a supported target** — it speaks the same HDHomeRun tuner protocol Plex
+  and Emby do, so this should already work; added to the docs accordingly.
+
+#### Clearer EPG source guidance
+Addressed a real complaint: Plex only ever showed guide data for US channels, nothing for
+international channels (Sky Sports, Australian sports, etc.) or 24/7 loop channels. Root cause is
+config, not a bug — the "PMS" EPG Source option delegates entirely to Plex/Emby's own built-in
+guide database, which is overwhelmingly US/Canada-focused. The wizard and Settings screen now
+explain this plainly and point non-US users at XEPG (bring your own XMLTV guide) instead, plus
+mention the existing "xTeVe Dummy" placeholder-schedule fallback for channels with no real EPG
+data at all.
+
 ---
 
 ## Requirements
@@ -136,6 +156,14 @@ the ones that still apply:
 * Emby Server (3.5.3.0 or newer)
 * Emby Client with Live-TV support
 * Emby Premiere
+
+### Jellyfin
+* Jellyfin Server (10.7.1 or newer)
+* Jellyfin Client with Live TV support
+* Add xteve-reborn as a Live TV tuner source of type "HDHomeRun" — the HDHomeRun tuner protocol
+  this project emulates is a de facto standard, so Jellyfin should detect it the same way Plex
+  and Emby do. Not yet verified end-to-end against a real Jellyfin instance in this fork; please
+  open an issue if you hit anything Jellyfin-specific.
 
 --- 
 
@@ -153,12 +181,14 @@ the ones that still apply:
 * Channel order
 * Channel logos
 * Channel categories
+* Up to 3 backup stream URLs per channel — if the primary fails to respond, the next reachable
+  one is used automatically (see the Mapping editor's channel popup)
 
 #### Streaming
 * Buffer with HLS / M3U8 support
 * Re-streaming
 * Number of tuners adjustable
-* Compatible with Plex / Emby EPG
+* Compatible with Plex / Emby / Jellyfin EPG
 
 ---
 
