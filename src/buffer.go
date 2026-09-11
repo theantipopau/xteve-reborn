@@ -730,8 +730,6 @@ func connectToStreamingServer(streamID int, playlistID string) {
 
 				}
 
-				defer resp.Body.Close()
-
 			}
 
 			defer resp.Body.Close()

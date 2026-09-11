@@ -346,8 +346,6 @@ func createXEPGDatabase() (err error) {
 			firstFreeNumber++
 
 		}
-
-		return
 	}
 
 	var generateHashForChannel = func(m3uID string, groupTitle string, tvgID string, tvgName string, uuidKey string, uuidValue string) string {
@@ -537,7 +535,7 @@ func mapping() (err error) {
 		if xepgChannel.XActive == false {
 
 			// Werte kann "-" sein, deswegen len < 1
-			if len(xepgChannel.XmltvFile) < 1 && len(xepgChannel.XmltvFile) < 1 {
+			if len(xepgChannel.XmltvFile) < 1 && len(xepgChannel.XMapping) < 1 {
 
 				var tvgID = xepgChannel.TvgID
 
@@ -600,7 +598,7 @@ func mapping() (err error) {
 
 					} else {
 
-						ShowError(fmt.Errorf(fmt.Sprintf("Missing EPG data: %s", xepgChannel.Name)), 0)
+						ShowError(fmt.Errorf("Missing EPG data: %s", xepgChannel.Name), 0)
 						showWarning(2302)
 						xepgChannel.XActive = false
 

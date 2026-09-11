@@ -290,7 +290,7 @@ func downloadFileFromServer(providerURL string) (filename string, body []byte, e
 	resp.Header.Set("User-Agent", Settings.UserAgent)
 
 	if resp.StatusCode != http.StatusOK {
-		err = fmt.Errorf(fmt.Sprintf("%d: %s "+http.StatusText(resp.StatusCode), resp.StatusCode, providerURL))
+		err = fmt.Errorf("%d: %s %s", resp.StatusCode, providerURL, http.StatusText(resp.StatusCode))
 		return
 	}
 

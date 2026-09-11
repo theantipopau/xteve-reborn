@@ -400,9 +400,6 @@ func WS(w http.ResponseWriter, r *http.Request) {
 			response = setDefaultResponseData(response, false)
 			if err = conn.WriteJSON(response); err != nil {
 				ShowError(err, 1022)
-			} else {
-				return
-				break
 			}
 			return
 
