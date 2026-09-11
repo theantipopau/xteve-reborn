@@ -159,7 +159,7 @@ func getLineup() (jsonContent []byte, err error) {
 				stream.GuideName = xepgChannel.XName
 				stream.GuideNumber = xepgChannel.XChannelID
 				//stream.URL = fmt.Sprintf("%s://%s/stream/%s-%s", System.ServerProtocol.DVR, System.Domain, xepgChannel.FileM3UID, base64.StdEncoding.EncodeToString([]byte(xepgChannel.URL)))
-				stream.URL, err = createStreamingURL("DVR", xepgChannel.FileM3UID, xepgChannel.XChannelID, xepgChannel.XName, xepgChannel.URL)
+				stream.URL, err = createStreamingURL("DVR", xepgChannel.FileM3UID, xepgChannel.XChannelID, xepgChannel.XName, xepgChannel.URL, xepgChannel.XBackupChannel1, xepgChannel.XBackupChannel2, xepgChannel.XBackupChannel3)
 				if err == nil {
 					lineup = append(lineup, stream)
 				} else {

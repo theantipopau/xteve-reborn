@@ -197,6 +197,9 @@ type XEPGChannelStruct struct {
 	XUpdateChannelIcon bool   `json:"x-update-channel-icon,required"`
 	XUpdateChannelName bool   `json:"x-update-channel-name,required"`
 	XDescription       string `json:"x-description,required"`
+	XBackupChannel1    string `json:"x-backup-channel-1,omitempty"`
+	XBackupChannel2    string `json:"x-backup-channel-2,omitempty"`
+	XBackupChannel3    string `json:"x-backup-channel-3,omitempty"`
 }
 
 // M3UChannelStructXEPG : M3U Struktur für XEPG
@@ -240,6 +243,9 @@ type StreamInfo struct {
 	PlaylistID    string `json:"playlistID,required"`
 	URL           string `json:"url,required"`
 	URLid         string `json:"urlID,required"`
+	BackupURL1    string `json:"backupUrl1,omitempty"`
+	BackupURL2    string `json:"backupUrl2,omitempty"`
+	BackupURL3    string `json:"backupUrl3,omitempty"`
 }
 
 // Notification : Notifikationen im Webinterface

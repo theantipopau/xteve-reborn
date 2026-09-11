@@ -41,3 +41,18 @@ var streamHTTPClient = &http.Client{
 		return errors.New("Redirect")
 	},
 }
+
+// preflightHTTPClient is for quickly checking whether a stream URL is
+// reachable before committing to it (used to decide between a channel's
+// primary and backup URLs). Deliberately much shorter than streamHTTPClient
+// so failing over to a backup doesn't make the viewer wait through a full
+// connection timeout on a dead primary.
+var preflightHTTPClient = &http.Client{
+	Transport: &http.Transport{
+		DialContext: (&net.Dialer{
+			Timeout: 5 * time.Second,
+		}).DialContext,
+		TLSHandshakeTimeout:   5 * time.Second,
+		ResponseHeaderTimeout: 5 * time.Second,
+	},
+}

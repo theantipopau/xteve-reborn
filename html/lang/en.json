@@ -271,6 +271,30 @@
       "title": "XMLTV Channel",
       "placeholder": "",
       "description": ""
+    },
+    "backupChannel1":
+    {
+      "title": "Backup Channel 1",
+      "placeholder": "",
+      "description": ""
+    },
+    "backupChannel2":
+    {
+      "title": "Backup Channel 2",
+      "placeholder": "",
+      "description": ""
+    },
+    "backupChannel3":
+    {
+      "title": "Backup Channel 3",
+      "placeholder": "",
+      "description": ""
+    },
+    "backupChannel":
+    {
+      "title": "",
+      "placeholder": "Stream URL (optional)",
+      "description": "If the main stream fails to connect, xTeVe tries these URLs in order before giving up. Leave blank if not needed."
     }
   },
   "users":
@@ -358,7 +382,7 @@
     "epgSource":
     {
       "title": "EPG Source",
-      "description": "PMS:<br>- Use EPG data from Plex or Emby <br><br>XEPG:<br>- Use of one or more XMLTV files<br>- Channel management<br>- M3U / XMLTV export (HTTP link for IPTV apps)"
+      "description": "PMS:<br>- Use EPG data from Plex or Emby<br>- Relies on Plex/Emby's own guide database, which mainly covers US/Canada broadcast TV<br>- International channels (Sky Sports, Australian sports, etc.) and 24/7 loop channels usually get no guide data this way<br><br>XEPG (recommended for anything outside the US/Canada):<br>- Use of one or more XMLTV files - point it at a guide source that actually covers your channels<br>- Channel management<br>- M3U / XMLTV export (HTTP link for IPTV apps)<br>- Channels with no real schedule can use the built-in 'xTeVe Dummy' placeholder guide instead of showing nothing"
     },
     "tuner":
     {
@@ -490,7 +514,7 @@
     "epgSource":
     {
       "title": "EPG Source",
-      "description": "PMS:<br>- Use EPG data from Plex or Emby <br><br>XEPG:<br>- Use of one or more XMLTV files<br>- Channel management<br>- M3U / XMLTV export (HTTP link for IPTV apps)"
+      "description": "PMS:<br>- Use EPG data from Plex or Emby<br>- Relies on Plex/Emby's own guide database, which mainly covers US/Canada broadcast TV<br>- International channels (Sky Sports, Australian sports, etc.) and 24/7 loop channels usually get no guide data this way<br><br>XEPG (recommended for anything outside the US/Canada):<br>- Use of one or more XMLTV files - point it at a guide source that actually covers your channels<br>- Channel management<br>- M3U / XMLTV export (HTTP link for IPTV apps)<br>- Channels with no real schedule can use the built-in 'xTeVe Dummy' placeholder guide instead of showing nothing"
     },
     "tuner":
     {

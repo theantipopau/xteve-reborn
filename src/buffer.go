@@ -23,6 +23,56 @@ import (
 	"time"
 )
 
+// isStreamURLReachable does a lightweight check (connect, get a response,
+// discard the body) to see whether a stream URL is currently serving. Used
+// to decide between a channel's primary and backup URLs before a client
+// commits to one.
+func isStreamURLReachable(streamURL string) bool {
+
+	if len(streamURL) == 0 {
+		return false
+	}
+
+	req, err := http.NewRequest("GET", streamURL, nil)
+	if err != nil {
+		return false
+	}
+	req.Header.Set("User-Agent", Settings.UserAgent)
+
+	resp, err := preflightHTTPClient.Do(req)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+
+	return resp.StatusCode == http.StatusOK
+}
+
+// resolveReachableStreamURL returns streamInfo's primary URL if it responds,
+// otherwise the first configured backup channel URL that does, otherwise the
+// primary unchanged - so a channel with no working backup behaves exactly
+// as it did before backup channels existed (same error further downstream).
+func resolveReachableStreamURL(streamInfo StreamInfo) string {
+
+	if isStreamURLReachable(streamInfo.URL) {
+		return streamInfo.URL
+	}
+
+	for _, backupURL := range []string{streamInfo.BackupURL1, streamInfo.BackupURL2, streamInfo.BackupURL3} {
+
+		if len(backupURL) == 0 {
+			continue
+		}
+
+		if isStreamURLReachable(backupURL) {
+			return backupURL
+		}
+
+	}
+
+	return streamInfo.URL
+}
+
 func createStreamID(stream map[int]ThisStream) (streamID int) {
 
 	var debug string

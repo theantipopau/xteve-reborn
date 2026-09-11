@@ -1319,6 +1319,23 @@ function openPopUp(dataType, element) {
             select.setAttribute("onchange", "javascript: this.className = 'changed'; checkXmltvChannel('" + id + "',this,'" + xmlFile + "');");
             sortSelect(select);
             content.appendRow("{{.mapping.xmltvChannel.title}}", select);
+            // Backup Channels
+            var dbKey = "x-backup-channel-1";
+            var input = content.createInput("text", dbKey, data[dbKey]);
+            input.setAttribute("placeholder", "{{.mapping.backupChannel.placeholder}}");
+            input.setAttribute("onchange", "javascript: this.className = 'changed'");
+            content.appendRow("{{.mapping.backupChannel1.title}}", input);
+            var dbKey = "x-backup-channel-2";
+            var input = content.createInput("text", dbKey, data[dbKey]);
+            input.setAttribute("placeholder", "{{.mapping.backupChannel.placeholder}}");
+            input.setAttribute("onchange", "javascript: this.className = 'changed'");
+            content.appendRow("{{.mapping.backupChannel2.title}}", input);
+            var dbKey = "x-backup-channel-3";
+            var input = content.createInput("text", dbKey, data[dbKey]);
+            input.setAttribute("placeholder", "{{.mapping.backupChannel.placeholder}}");
+            input.setAttribute("onchange", "javascript: this.className = 'changed'");
+            content.appendRow("{{.mapping.backupChannel3.title}}", input);
+            content.description("{{.mapping.backupChannel.description}}");
             // Interaktion
             content.createInteraction();
             // Logo hochladen
