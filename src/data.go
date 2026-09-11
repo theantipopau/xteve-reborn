@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"xteve/src/internal/authentication"
-	"xteve/src/internal/imgcache"
+	"xteve-reborn/src/internal/authentication"
+	"xteve-reborn/src/internal/imgcache"
 )
 
 // Einstellungen ändern (WebUI)

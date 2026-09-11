@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strings"
 
-	"xteve/src/internal/authentication"
+	"xteve-reborn/src/internal/authentication"
 )
 
 func activatedSystemAuthentication() (err error) {

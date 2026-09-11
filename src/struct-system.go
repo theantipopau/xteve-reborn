@@ -1,6 +1,6 @@
 package src
 
-import "xteve/src/internal/imgcache"
+import "xteve-reborn/src/internal/imgcache"
 
 // SystemStruct : Beinhaltet alle Systeminformationen
 type SystemStruct struct {

@@ -16,7 +16,7 @@ import (
 	"strings"
 	"time"
 
-	"xteve/src/internal/imgcache"
+	"xteve-reborn/src/internal/imgcache"
 )
 
 // Provider XMLTV Datei überprüfen
