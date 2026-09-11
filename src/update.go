@@ -44,6 +44,7 @@ func BinaryUpdate() (err error) {
 			ShowError(err, 6003)
 			return nil
 		}
+		defer resp.Body.Close()
 
 		if resp.StatusCode != http.StatusOK {
 

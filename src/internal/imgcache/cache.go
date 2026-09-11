@@ -100,31 +100,46 @@ func New(path, chacheURL string, caching bool) (c *Cache, err error) {
 		c.Lock()
 		defer c.Unlock()
 
-		var filename string
-
+		// Each iteration's resp.Body/file are closed via a per-iteration
+		// closure rather than a loop-level defer, which would otherwise
+		// hold every response and file handle in the queue open at once
+		// until the whole Caching() call finishes instead of as each image
+		// completes.
 		for _, src := range c.Queue {
 
-			resp, err := httpClient.Get(src)
-			if err != nil {
-				continue
-			}
-			defer resp.Body.Close()
+			var filename string
+			var cached bool
 
-			if resp.StatusCode != http.StatusOK {
-				continue
-			}
+			func() {
 
-			filename = fmt.Sprintf("%s%s%s%s", c.path, string(os.PathSeparator), strToMD5(src), filepath.Ext(src))
+				resp, err := httpClient.Get(src)
+				if err != nil {
+					return
+				}
+				defer resp.Body.Close()
 
-			file, err := os.Create(filename)
-			if err != nil {
-				continue
-			}
+				if resp.StatusCode != http.StatusOK {
+					return
+				}
 
-			defer file.Close()
+				filename = fmt.Sprintf("%s%s%s%s", c.path, string(os.PathSeparator), strToMD5(src), filepath.Ext(src))
 
-			_, err = io.Copy(file, resp.Body)
-			if err != nil {
+				file, err := os.Create(filename)
+				if err != nil {
+					return
+				}
+				defer file.Close()
+
+				_, err = io.Copy(file, resp.Body)
+				if err != nil {
+					return
+				}
+
+				cached = true
+
+			}()
+
+			if !cached {
 				continue
 			}
 

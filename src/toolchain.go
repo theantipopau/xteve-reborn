@@ -294,6 +294,22 @@ func resolveHostIP() (err error) {
 		return
 	}
 
+	// On a machine with more than one network interface (Docker bridges,
+	// VPN tunnels, secondary NICs are all common on the kind of box this
+	// runs on), the loop below used to just take the *last* qualifying
+	// address it happened to enumerate - which is often not the LAN
+	// address Plex/Emby actually need to reach the tuner on. A UDP "dial"
+	// to a public address sends no packets but makes the OS pick the local
+	// address it would actually route through, which reliably identifies
+	// the primary outbound interface. Falls back to the enumeration below
+	// if there's no route out (e.g. a fully offline/air-gapped LAN).
+	if conn, dialErr := net.Dial("udp", "1.1.1.1:80"); dialErr == nil {
+		if udpAddr, ok := conn.LocalAddr().(*net.UDPAddr); ok {
+			System.IPAddress = udpAddr.IP.String()
+		}
+		conn.Close()
+	}
+
 	for _, netInterfaceAddress := range netInterfaceAddresses {
 
 		networkIP, ok := netInterfaceAddress.(*net.IPNet)
@@ -307,7 +323,7 @@ func resolveHostIP() (err error) {
 
 				System.IPAddressesV4 = append(System.IPAddressesV4, ip)
 
-				if !networkIP.IP.IsLoopback() && ip[0:7] != "169.254" {
+				if len(System.IPAddress) == 0 && !networkIP.IP.IsLoopback() && ip[0:7] != "169.254" {
 					System.IPAddress = ip
 				}
 

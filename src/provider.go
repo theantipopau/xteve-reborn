@@ -282,12 +282,17 @@ func downloadFileFromServer(providerURL string) (filename string, body []byte, e
 		return
 	}
 
-	resp, err := fileDownloadHTTPClient.Get(providerURL)
+	req, err := http.NewRequest("GET", providerURL, nil)
 	if err != nil {
 		return
 	}
+	req.Header.Set("User-Agent", Settings.UserAgent)
 
-	resp.Header.Set("User-Agent", Settings.UserAgent)
+	resp, err := fileDownloadHTTPClient.Do(req)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		err = fmt.Errorf("%d: %s %s", resp.StatusCode, providerURL, http.StatusText(resp.StatusCode))

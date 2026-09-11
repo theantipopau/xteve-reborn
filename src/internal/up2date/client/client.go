@@ -85,10 +85,15 @@ func serverRequest() (err error) {
 		}
 
 		resp, err := client.Do(redirect)
+		if resp != nil {
+			defer resp.Body.Close()
+		}
 
 		if err != nil {
-			// Redirect
-			if resp.StatusCode >= 301 && resp.StatusCode <= 308 { //status code 301 <---> 308
+			// A blocked redirect still yields a non-nil resp alongside the
+			// error; any other failure (DNS, connection refused, timeout)
+			// does not, so resp must be checked before it's dereferenced.
+			if resp != nil && resp.StatusCode >= 301 && resp.StatusCode <= 308 { //status code 301 <---> 308
 				Updater.URL = resp.Header.Get("Location")
 			} else {
 				return err
