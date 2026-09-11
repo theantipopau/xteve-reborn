@@ -801,11 +801,42 @@ class ShowContent extends Content {
       table.appendChild(header)
 
       // Inhalt der Tabelle
-      var rows:any = this.createTableContent(menuKey) 
+      var rows:any = this.createTableContent(menuKey)
       rows.forEach(tr => {
         table.appendChild(tr)
       });
-      
+
+      if (rows.length == 0) {
+
+        var emptyText = "{{.table.empty.default}}"
+        switch (menuKey) {
+          case "playlist":
+            emptyText = "{{.table.empty.playlist}}"
+            break
+          case "filter":
+            emptyText = "{{.table.empty.filter}}"
+            break
+          case "xmltv":
+            emptyText = "{{.table.empty.xmltv}}"
+            break
+          case "users":
+            emptyText = "{{.table.empty.users}}"
+            break
+          case "mapping":
+            emptyText = "{{.table.empty.mapping}}"
+            break
+        }
+
+        var emptyRow = document.createElement("TR")
+        var emptyCell = document.createElement("TD")
+        emptyCell.setAttribute("colspan", tableHeader.length.toString())
+        emptyCell.className = "emptyState"
+        emptyCell.textContent = emptyText
+        emptyRow.appendChild(emptyCell)
+        table.appendChild(emptyRow)
+
+      }
+
     }
 
     switch (menuKey) {

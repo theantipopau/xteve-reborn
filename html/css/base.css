@@ -384,7 +384,7 @@ input[type=button].center {
 }
 
 #branch {
-  display: table;
+  display: none;
   margin: auto;
   color: var(--warning);
   font-size: 11px;

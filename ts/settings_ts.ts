@@ -258,20 +258,6 @@ class SettingsCategory {
         setting.appendChild(tdRight)
         break
 
-      case "xteveAutoUpdate":
-        var tdLeft = document.createElement("TD")
-        tdLeft.innerHTML = "{{.settings.xteveAutoUpdate.title}}" + ":"
-
-        var tdRight = document.createElement("TD")
-        var input = content.createCheckbox(settingsKey)
-        input.checked = data
-        input.setAttribute("onchange", "javascript: this.className = 'changed'")
-        tdRight.appendChild(input)
-
-        setting.appendChild(tdLeft)
-        setting.appendChild(tdRight)
-        break
-
       case "api":
         var tdLeft = document.createElement("TD")
         tdLeft.innerHTML = "{{.settings.api.title}}" + ":"
@@ -420,10 +406,6 @@ class SettingsCategory {
         if (SERVER["settings"]["authentication.web"] == true) {
           text = "{{.settings.authenticationAPI.description}}"
         }
-        break
-
-      case "xteveAutoUpdate":
-        text = "{{.settings.xteveAutoUpdate.description}}"
         break
 
       case "backup.keep":

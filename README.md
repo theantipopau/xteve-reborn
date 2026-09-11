@@ -144,6 +144,32 @@ explain this plainly and point non-US users at XEPG (bring your own XMLTV guide)
 mention the existing "xTeVe Dummy" placeholder-schedule fallback for channels with no real EPG
 data at all.
 
+#### Web UI structure & polish
+* **Replaced the entire sidebar icon set.** The old one was a random mismatched grab-bag — flat
+  raster PNGs in inconsistent styles, and the "Filter" nav item's icon was literally a heart
+  (favorites, not filtering — clearly a leftover mistake, not a design choice). Redrew all 8 as a
+  cohesive, consistent line-icon SVG family, including a proper funnel for Filter.
+* **Redesigned the dashboard status bar** from a dense, monospace, table-of-abbreviations into a
+  real stat grid: primary at-a-glance numbers (Streams, EPG Source, Errors, Warnings, etc.) up
+  front with clear labels, technical details (OS/Arch, DVR IP, UUID) visually de-emphasized, and
+  the long M3U/XEPG URLs broken out into their own row instead of competing for space in the same
+  grid.
+* **Actually implemented mobile responsiveness** that had been started and abandoned: the main
+  dashboard's viewport meta tag was commented out (while every other page had it enabled — clearly
+  an oversight), and a `.phone` CSS class was referenced throughout the markup but had no matching
+  rule anywhere, so it did nothing. Re-enabled the viewport tag, removed the dead class, and built
+  real mobile-first behavior: the sidebar collapses to an icon-only rail below 620px width instead
+  of eating 60%+ of a phone screen, and the technical stats/URL row hide until there's room for
+  them.
+* **Added empty states.** Tables (Playlist, Filter, XMLTV, Users, Mapping) rendered as a bare
+  header with nothing below when empty, with no indication of why or what to do next. Each now
+  shows a short, specific message pointing at the right next action.
+* **Removed a dead, misleading setting.** "Automatic update of xTeVe" in Settings still looked
+  live and toggleable, but this fork's self-updater is unconditionally disabled at a lower level
+  (see the "Plex / Emby connection & streaming reliability" section above) — the checkbox hasn't
+  done anything since that change. Removed it rather than leave a control that lies about what it
+  controls.
+
 ---
 
 ## Requirements

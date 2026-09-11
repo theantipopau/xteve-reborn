@@ -1,4 +1,16 @@
 {
+  "table":
+  {
+    "empty":
+    {
+      "default": "Nothing here yet.",
+      "playlist": "No playlists yet. Click New above to add an M3U or HDHomeRun source.",
+      "filter": "No filters yet. Click New above to create one.",
+      "xmltv": "No XMLTV guide files yet. Click New above to add one.",
+      "users": "No users yet. Click New above to add one.",
+      "mapping": "No channels to map yet. Add a playlist first, then they will show up here."
+    }
+  },
   "mainMenu":
   {
     "item":

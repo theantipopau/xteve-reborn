@@ -2,9 +2,7 @@
 <html>
   <head>
     <meta charset="utf-8">
-    <!---
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" /> 
-    -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>xTeVe Reborn</title>
     <link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png">
     <link rel="icon" type="image/png" sizes="192x192" href="img/favicon-192.png">
@@ -51,46 +49,58 @@
 
         <div class="layout-right">
 
-          <table id="clientInfo" class="">
+          <div id="clientInfo" class="stat-bar">
 
-            <tr>
-              <td class="tdKey">xTeVe:</td>
-              <td id="version" class="tdVal">&nbsp;</td>
-              <td class="tdKey">OS:</td>
-              <td id="os" class="tdVal">&nbsp;</td>
-              <td class="tdKey phone">DVR IP:</td>
-              <td id="DVR" class="tdVal phone">&nbsp;</td>
-            </tr>
+            <div class="stat">
+              <span class="stat-label">Version</span>
+              <span class="stat-value" id="version">&nbsp;</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Streams</span>
+              <span class="stat-value" id="streams">&nbsp;</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">EPG Source</span>
+              <span class="stat-value" id="epgSource">&nbsp;</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">XEPG Channels</span>
+              <span class="stat-value" id="xepg">&nbsp;</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Errors</span>
+              <span class="stat-value stat-errors" id="errors">&nbsp;</span>
+            </div>
+            <div class="stat">
+              <span class="stat-label">Warnings</span>
+              <span class="stat-value stat-warnings" id="warnings">&nbsp;</span>
+            </div>
+            <div class="stat stat-tech">
+              <span class="stat-label">System</span>
+              <span class="stat-value"><span id="os">&nbsp;</span> / <span id="arch">&nbsp;</span></span>
+            </div>
+            <div class="stat stat-tech">
+              <span class="stat-label">DVR IP</span>
+              <span class="stat-value" id="DVR">&nbsp;</span>
+            </div>
+            <div class="stat stat-tech stat-uuid">
+              <span class="stat-label">UUID</span>
+              <span class="stat-value" id="uuid">&nbsp;</span>
+            </div>
 
-            <tr>
-              <td class="tdKey">UUID:</td>
-              <td id="uuid" class="tdVal">&nbsp;</td>
-              <td class="tdKey">Arch:</td>
-              <td id="arch" class="tdVal">&nbsp;</td>
-              <td class="tdKey phone">M3U URL:</td>
-              <td id="m3u-url" class="tdVal phone">&nbsp;</td>
-            </tr>
+          </div>
 
-            <tr>
-              <td class="tdKey">Available Streams:</td>
-              <td id="streams" class="tdVal">&nbsp;</td>
-              <td class="tdKey">EPG Source:</td>
-              <td id="epgSource" class="tdVal">&nbsp;</td>
-              <td class="tdKey phone">XEPG URL:</td>
-              <td id="xepg-url" class="tdVal phone">&nbsp;</td>
-            </tr>
+          <div id="clientInfoUrls" class="stat-urls">
+            <div class="stat-url-row">
+              <span class="stat-label">M3U URL</span>
+              <span class="stat-value" id="m3u-url">&nbsp;</span>
+            </div>
+            <div class="stat-url-row">
+              <span class="stat-label">XEPG URL</span>
+              <span class="stat-value" id="xepg-url">&nbsp;</span>
+            </div>
+          </div>
 
-            <tr>
-              <td class="tdKey">XEPG Channels:</td>
-              <td id="xepg" class="tdVal">&nbsp;</td>
-              <td class="tdKey">Errors:</td>
-              <td id="errors" class="tdVal">&nbsp;</td>
-              <td class="tdKey">Warnings:</td>
-              <td id="warnings" class="tdVal">&nbsp;</td>
-            </tr>
-
-          </table>
-         
           <div id="myStreamsBox" class="notVisible">
 
             <div id="allStreams">
