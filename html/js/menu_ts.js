@@ -440,8 +440,11 @@ var Cell = /** @class */ (function () {
             var element;
             switch (this.childType) {
                 case "P":
+                    // textContent, not innerHTML: this.value is provider-controlled
+                    // data (channel names, group titles, etc.) and could contain
+                    // markup/script from a malicious or compromised M3U/XMLTV source.
                     element = document.createElement(this.childType);
-                    element.innerHTML = this.value;
+                    element.textContent = this.value;
                     element.className = this.className;
                     break;
                 case "INPUT":
@@ -479,7 +482,7 @@ var Cell = /** @class */ (function () {
             td.appendChild(element);
         }
         else {
-            td.innerHTML = this.value;
+            td.textContent = this.value;
         }
         if (this.onclick == true) {
             td.setAttribute("onclick", this.onclickFunktion);
@@ -1252,7 +1255,7 @@ function openPopUp(dataType, element) {
                 input.setAttribute("readonly", "true");
             }
             content.appendRow("{{.mapping.channelName.title}}", input);
-            content.description(data["name"]);
+            content.description(escapeHTML(data["name"]));
             // Beschreibung 
             var dbKey = "x-description";
             var input = content.createInput("text", dbKey, data[dbKey]);
@@ -1295,7 +1298,7 @@ function openPopUp(dataType, element) {
             input.setAttribute("onchange", "javascript: this.className = 'changed'");
             content.appendRow("{{.mapping.m3uGroupTitle.title}}", input);
             if (data["group-title"] != undefined) {
-                content.description(data["group-title"]);
+                content.description(escapeHTML(data["group-title"]));
             }
             // XMLTV Datei
             var dbKey = "x-xmltv-file";
@@ -1678,13 +1681,13 @@ function donePopupData(dataType, idsStr) {
                     //(document.getElementById(id).childNodes[2].firstChild as HTMLElement).setAttribute("src", value)
                     break;
                 case "x-name":
-                    document.getElementById(id).childNodes[3].firstChild.innerHTML = value;
+                    document.getElementById(id).childNodes[3].firstChild.textContent = value;
                     break;
                 case "x-category":
                     document.getElementById(id).childNodes[3].firstChild.className = value;
                     break;
                 case "x-group-title":
-                    document.getElementById(id).childNodes[5].firstChild.innerHTML = value;
+                    document.getElementById(id).childNodes[5].firstChild.textContent = value;
                     break;
                 case "x-xmltv-file":
                     if (value != "xTeVe Dummy" && value != "-") {
@@ -1693,13 +1696,13 @@ function donePopupData(dataType, idsStr) {
                     if (value == "-") {
                         input["x-active"] = false;
                     }
-                    document.getElementById(id).childNodes[6].firstChild.innerHTML = value;
+                    document.getElementById(id).childNodes[6].firstChild.textContent = value;
                     break;
                 case "x-mapping":
                     if (value == "-") {
                         input["x-active"] = false;
                     }
-                    document.getElementById(id).childNodes[7].firstChild.innerHTML = value;
+                    document.getElementById(id).childNodes[7].firstChild.textContent = value;
                     break;
                 default:
             }

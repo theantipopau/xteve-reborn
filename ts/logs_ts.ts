@@ -16,7 +16,7 @@ class Log {
       element.className = "debugMsg"
     }
 
-    element.innerHTML = entry
+    element.textContent = entry
 
     return element
   }

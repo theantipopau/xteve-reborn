@@ -537,9 +537,14 @@ class Cell {
       var element:any
 
       switch(this.childType){
-        case "P": 
+        case "P":
+          // textContent, not innerHTML: this.value is provider-controlled
+          // data (channel names, group titles, etc. from an M3U/XMLTV
+          // source), and a malicious or compromised provider could embed
+          // markup/script here that would otherwise execute in the admin's
+          // session when the mapping/playlist/filter/users table renders it.
           element = document.createElement(this.childType);
-          element.innerHTML = this.value
+          element.textContent = this.value
           element.className = this.className
           break
         
@@ -583,7 +588,7 @@ class Cell {
       td.appendChild(element)
       
     } else {
-      td.innerHTML = this.value
+      td.textContent = this.value
     }
 
     if (this.onclick == true) {
@@ -1530,7 +1535,7 @@ function openPopUp(dataType, element) {
       }
       content.appendRow("{{.mapping.channelName.title}}", input)
 
-      content.description(data["name"])
+      content.description(escapeHTML(data["name"]))
 
       // Beschreibung 
       var dbKey:string = "x-description"
@@ -1580,7 +1585,7 @@ function openPopUp(dataType, element) {
       content.appendRow("{{.mapping.m3uGroupTitle.title}}", input)
 
       if (data["group-title"] != undefined) {
-        content.description(data["group-title"])
+        content.description(escapeHTML(data["group-title"]))
       }
 
       // XMLTV Datei
@@ -2098,7 +2103,7 @@ function donePopupData(dataType:string, idsStr:string) {
           break
 
         case "x-name":
-          (document.getElementById(id).childNodes[3].firstChild as HTMLElement).innerHTML = value
+          (document.getElementById(id).childNodes[3].firstChild as HTMLElement).textContent = value
           break
 
         case "x-category":
@@ -2106,7 +2111,7 @@ function donePopupData(dataType:string, idsStr:string) {
           break
 
         case "x-group-title":
-          (document.getElementById(id).childNodes[5].firstChild as HTMLElement).innerHTML = value
+          (document.getElementById(id).childNodes[5].firstChild as HTMLElement).textContent = value
           break
 
         case "x-xmltv-file":
@@ -2118,7 +2123,7 @@ function donePopupData(dataType:string, idsStr:string) {
             input["x-active"] = false
           }
 
-          (document.getElementById(id).childNodes[6].firstChild as HTMLElement).innerHTML = value
+          (document.getElementById(id).childNodes[6].firstChild as HTMLElement).textContent = value
           break
 
         case "x-mapping":
@@ -2126,7 +2131,7 @@ function donePopupData(dataType:string, idsStr:string) {
             input["x-active"] = false
           }
 
-          (document.getElementById(id).childNodes[7].firstChild as HTMLElement).innerHTML = value
+          (document.getElementById(id).childNodes[7].firstChild as HTMLElement).textContent = value
    
           break
 

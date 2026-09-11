@@ -1,3 +1,13 @@
+// escapeHTML neutralizes markup in a string before it's used inside an
+// innerHTML assignment. Needed anywhere provider-controlled data (channel
+// names, group titles, etc. from an M3U/XMLTV source) ends up in a spot
+// that renders HTML rather than plain text, since that data isn't trusted.
+function escapeHTML(value:string):string {
+  var div = document.createElement("div")
+  div.textContent = value
+  return div.innerHTML
+}
+
 var SERVER = new Object()
 var BULK_EDIT:Boolean = false
 var COLUMN_TO_SORT:number

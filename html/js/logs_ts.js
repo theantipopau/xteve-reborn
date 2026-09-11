@@ -12,7 +12,7 @@ var Log = /** @class */ (function () {
         if (entry.indexOf("DEBUG") != -1) {
             element.className = "debugMsg";
         }
-        element.innerHTML = entry;
+        element.textContent = entry;
         return element;
     };
     return Log;
