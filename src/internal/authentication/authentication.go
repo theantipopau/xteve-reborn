@@ -8,10 +8,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"crypto/hmac"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/base64"
+
+	"golang.org/x/crypto/pbkdf2"
 
 	"time"
 	//"fmt"
@@ -186,7 +188,7 @@ func CreateNewUser(username, password string) (userID string, err error) {
 		var salt = userData["_salt"].(string)
 		var loginUsername = userData["_username"].(string)
 
-		if SHA256(username, salt) == loginUsername {
+		if secureCompare(hashSecret(username, salt), loginUsername) {
 			err = createError(020)
 		}
 
@@ -225,8 +227,8 @@ func UserAuthentication(username, password string) (token string, err error) {
 		var loginUsername = loginData["_username"].(string)
 		var loginPassword = loginData["_password"].(string)
 
-		if SHA256(username, salt) == loginUsername {
-			if SHA256(password, salt) == loginPassword {
+		if secureCompare(hashSecret(username, salt), loginUsername) {
+			if secureCompare(hashSecret(password, salt), loginPassword) {
 				err = nil
 			}
 		}
@@ -397,11 +399,11 @@ func ChangeCredentials(userID, username, password string) (err error) {
 		var salt = userData.(map[string]interface{})["_salt"].(string)
 
 		if len(username) > 0 {
-			userData.(map[string]interface{})["_username"] = SHA256(username, salt)
+			userData.(map[string]interface{})["_username"] = hashSecret(username, salt)
 		}
 
 		if len(password) > 0 {
-			userData.(map[string]interface{})["_password"] = SHA256(password, salt)
+			userData.(map[string]interface{})["_password"] = hashSecret(password, salt)
 		}
 
 		err = saveDatabase(data)
@@ -487,12 +489,25 @@ func loadDatabase() (err error) {
 	return
 }
 
-// SHA256 : password + salt = sha256 string
-func SHA256(secret, salt string) string {
-	key := []byte(secret)
-	h := hmac.New(sha256.New, key)
-	h.Write([]byte("_remote_db"))
-	return base64.StdEncoding.EncodeToString(h.Sum(nil))
+const pbkdf2Iterations = 210000
+const pbkdf2KeyLength = 32
+
+// hashSecret derives a salted hash of secret for storage/comparison.
+// Replaces a previous scheme that computed HMAC-SHA256 keyed by secret over
+// a constant message and never actually mixed in the salt parameter it took
+// - meaning the same password hashed identically on every installation, and
+// verification cost was a single hash calculation instead of a deliberately
+// slow, tunable one. PBKDF2 with a real per-user salt and a high iteration
+// count fixes both.
+func hashSecret(secret, salt string) string {
+	key := pbkdf2.Key([]byte(secret), []byte(salt), pbkdf2Iterations, pbkdf2KeyLength, sha256.New)
+	return base64.StdEncoding.EncodeToString(key)
+}
+
+// secureCompare compares two hash strings without leaking timing
+// information about where they first differ.
+func secureCompare(a, b string) bool {
+	return subtle.ConstantTimeCompare([]byte(a), []byte(b)) == 1
 }
 
 func randomString(n int) string {
@@ -547,8 +562,8 @@ func createError(errCode int) (err error) {
 func defaultsForNewUser(username, password string) map[string]interface{} {
 	var defaults = make(map[string]interface{})
 	var salt = randomString(saltLength)
-	defaults["_username"] = SHA256(username, salt)
-	defaults["_password"] = SHA256(password, salt)
+	defaults["_username"] = hashSecret(username, salt)
+	defaults["_password"] = hashSecret(password, salt)
 	defaults["_salt"] = salt
 	defaults["_id"] = "id-" + randomID(idLength)
 	//defaults["_one.time.token"] = randomString(tokenLength)
@@ -586,7 +601,14 @@ func mapToJSON(tmpMap interface{}) string {
 // SetCookieToken : set cookie
 func SetCookieToken(w http.ResponseWriter, token string) http.ResponseWriter {
 	expiration := time.Now().Add(time.Minute * time.Duration(tokenValidity))
-	cookie := http.Cookie{Name: "Token", Value: token, Expires: expiration}
+	// Path is explicit because without it the browser derives a default from
+	// whichever URL happens to set the cookie (e.g. /web/login.html), which
+	// can be narrower than the app's own /data/, /api/ etc. and cause the
+	// token to silently not be sent on some requests. Not marked HttpOnly
+	// because the UI's own JS reads this cookie to authenticate its
+	// WebSocket connections; not marked Secure since most installs run over
+	// plain HTTP on a LAN and that would break login entirely for them.
+	cookie := http.Cookie{Name: "Token", Value: token, Expires: expiration, Path: "/", SameSite: http.SameSiteLaxMode}
 	http.SetCookie(w, &cookie)
 	return w
 }
