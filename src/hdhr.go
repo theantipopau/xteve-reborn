@@ -104,6 +104,9 @@ func getLineupStatus() (jsonContent []byte, err error) {
 
 func getLineup() (jsonContent []byte, err error) {
 
+	xepgLock.Lock()
+	defer xepgLock.Unlock()
+
 	var lineup Lineup
 
 	switch Settings.EpgSource {

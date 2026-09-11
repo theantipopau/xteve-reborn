@@ -32,6 +32,17 @@ var BufferClients sync.Map
 // Lock : Lock Map
 var Lock = sync.RWMutex{}
 
+// xepgLock guards Data.XEPG.Channels. It's read and rewritten from several
+// independent goroutines (WS command handlers, the maintenance loop's
+// scheduled provider refresh, and any HTTP handler that builds a lineup or
+// M3U/XMLTV response) with no coordination between them; Go maps panic with
+// a fatal, unrecoverable error on concurrent read/write, so every function
+// that touches this specific map takes this lock for the duration of its
+// access. A plain Mutex rather than RWMutex: this is a low-traffic admin
+// tool, not a high-QPS service, and a non-reentrant Mutex is much harder to
+// accidentally deadlock than an RWMutex where a read-lock can't be upgraded.
+var xepgLock sync.Mutex
+
 // Init : Systeminitialisierung
 func Init() (err error) {
 

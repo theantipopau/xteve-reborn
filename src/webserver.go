@@ -948,8 +948,8 @@ func API(w http.ResponseWriter, r *http.Request) {
 		response.StreamsXepg = int64(Data.XEPG.XEPGCount)
 		response.EpgSource = Settings.EpgSource
 		response.URLDvr = System.Domain
-		response.URLM3U = System.ServerProtocol.M3U + "://" + System.Domain + "/m3u/xteve.m3u"
-		response.URLXepg = System.ServerProtocol.XML + "://" + System.Domain + "/xmltv/xteve.xml"
+		response.URLM3U = System.ServerProtocol.M3U + "://" + System.Domain + "/m3u/" + System.AppName + ".m3u"
+		response.URLXepg = System.ServerProtocol.XML + "://" + System.Domain + "/xmltv/" + System.AppName + ".xml"
 
 	case "update.m3u":
 		err = getProviderData("m3u", "")
@@ -1057,7 +1057,19 @@ func setDefaultResponseData(response ResponseStruct, data bool) (defaults Respon
 
 			if len(Data.Streams.Active) > 0 {
 
-				XEPG["epgMapping"] = Data.XEPG.Channels
+				// A shallow copy, not the live map, since this reference
+				// escapes into the response and gets JSON-marshaled well
+				// after this function returns - marshaling a map another
+				// goroutine is concurrently rebuilding (xepgLock only
+				// protects the copy itself, taken below) would panic.
+				xepgLock.Lock()
+				var epgMappingSnapshot = make(map[string]interface{}, len(Data.XEPG.Channels))
+				for k, v := range Data.XEPG.Channels {
+					epgMappingSnapshot[k] = v
+				}
+				xepgLock.Unlock()
+
+				XEPG["epgMapping"] = epgMappingSnapshot
 				XEPG["xmltvMap"] = Data.XMLTV.Mapping
 
 			} else {

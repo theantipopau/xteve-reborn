@@ -233,16 +233,16 @@ func setGlobalDomain(domain string) {
 
 	switch Settings.AuthenticationM3U {
 	case true:
-		System.Addresses.M3U = System.ServerProtocol.M3U + "://" + System.Domain + "/m3u/xteve.m3u?username=xxx&password=yyy<br>(Specific groups: [http://...&group-title=foo,bar])"
+		System.Addresses.M3U = System.ServerProtocol.M3U + "://" + System.Domain + "/m3u/" + System.AppName + ".m3u?username=xxx&password=yyy<br>(Specific groups: [http://...&group-title=foo,bar])"
 	case false:
-		System.Addresses.M3U = System.ServerProtocol.M3U + "://" + System.Domain + "/m3u/xteve.m3u     (Specific groups: [http://...?group-title=foo,bar])"
+		System.Addresses.M3U = System.ServerProtocol.M3U + "://" + System.Domain + "/m3u/" + System.AppName + ".m3u     (Specific groups: [http://...?group-title=foo,bar])"
 	}
 
 	switch Settings.AuthenticationXML {
 	case true:
-		System.Addresses.XML = System.ServerProtocol.XML + "://" + System.Domain + "/xmltv/xteve.xml?username=xxx&password=yyy"
+		System.Addresses.XML = System.ServerProtocol.XML + "://" + System.Domain + "/xmltv/" + System.AppName + ".xml?username=xxx&password=yyy"
 	case false:
-		System.Addresses.XML = System.ServerProtocol.XML + "://" + System.Domain + "/xmltv/xteve.xml"
+		System.Addresses.XML = System.ServerProtocol.XML + "://" + System.Domain + "/xmltv/" + System.AppName + ".xml"
 	}
 
 	if Settings.EpgSource != "XEPG" {

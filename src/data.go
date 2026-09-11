@@ -525,7 +525,9 @@ func saveXEpgMapping(request RequestStruct) (err error) {
 		return err
 	}
 
+	xepgLock.Lock()
 	Data.XEPG.Channels = request.EpgMapping
+	xepgLock.Unlock()
 
 	if System.ScanInProgress == 0 {
 

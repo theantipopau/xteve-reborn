@@ -304,6 +304,9 @@ func createXEPGMapping() {
 // XEPG Datenbank erstellen / aktualisieren
 func createXEPGDatabase() (err error) {
 
+	xepgLock.Lock()
+	defer xepgLock.Unlock()
+
 	var allChannelNumbers = make([]float64, 0, System.UnfilteredChannelLimit)
 	Data.Cache.Streams.Active = make([]string, 0, System.UnfilteredChannelLimit)
 	Data.XEPG.Channels = make(map[string]interface{}, System.UnfilteredChannelLimit)
@@ -523,6 +526,9 @@ func createXEPGDatabase() (err error) {
 func mapping() (err error) {
 	showInfo("XEPG:" + "Map channels")
 
+	xepgLock.Lock()
+	defer xepgLock.Unlock()
+
 	for xepg, dxc := range Data.XEPG.Channels {
 
 		var xepgChannel XEPGChannelStruct
@@ -642,6 +648,9 @@ func mapping() (err error) {
 
 // XMLTV Datei erstellen
 func createXMLTVFile() (err error) {
+
+	xepgLock.Lock()
+	defer xepgLock.Unlock()
 
 	// Image Cache
 	// 4edd81ab7c368208cc6448b615051b37.jpg
@@ -1029,6 +1038,9 @@ func createM3UFile() {
 // XEPG Datenbank bereinigen
 func cleanupXEPG() {
 
+	xepgLock.Lock()
+	defer xepgLock.Unlock()
+
 	//fmt.Println(Settings.Files.M3U)
 
 	var sourceIDs []string
@@ -1083,6 +1095,9 @@ func cleanupXEPG() {
 
 // Streaming URL für die Channels App generieren
 func getStreamByChannelID(channelID string) (playlistID, streamURL string, err error) {
+
+	xepgLock.Lock()
+	defer xepgLock.Unlock()
 
 	err = errors.New("Channel not found")
 

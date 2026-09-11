@@ -181,6 +181,9 @@ func checkConditions(streamValues, conditions, coType string) (status bool) {
 // xTeVe M3U Datei erstellen
 func buildM3U(groups []string) (m3u string, err error) {
 
+	xepgLock.Lock()
+	defer xepgLock.Unlock()
+
 	var imgc = Data.Cache.Images
 	var m3uChannels = make(map[float64]XEPGChannelStruct)
 	var channelNumbers []float64
@@ -218,7 +221,7 @@ func buildM3U(groups []string) (m3u string, err error) {
 	// M3U Inhalt erstellen
 	sort.Float64s(channelNumbers)
 
-	var xmltvURL = fmt.Sprintf("%s://%s/xmltv/xteve.xml", System.ServerProtocol.XML, System.Domain)
+	var xmltvURL = fmt.Sprintf("%s://%s/xmltv/%s.xml", System.ServerProtocol.XML, System.Domain, System.AppName)
 	m3u = fmt.Sprintf(`#EXTM3U url-tvg="%s" x-tvg-url="%s"`+"\n", xmltvURL, xmltvURL)
 
 	for _, channelNumber := range channelNumbers {
@@ -235,8 +238,7 @@ func buildM3U(groups []string) (m3u string, err error) {
 
 	if len(groups) == 0 {
 
-		var filename = System.Folder.Data + "xteve.m3u"
-		err = writeByteToFile(filename, []byte(m3u))
+		err = writeByteToFile(System.File.M3U, []byte(m3u))
 
 	}
 

@@ -124,6 +124,27 @@ the ones that still apply:
 * A few missing `resp.Body.Close()` calls and a defer-inside-a-loop that held every image-cache
   download's file handle open until the whole batch finished instead of per-item.
 
+#### Concurrency and a broken guide URL
+* **Fixed a crash-on-concurrent-access bug in the core channel database.** `Data.XEPG.Channels`
+  (the map backing every channel's mapping/EPG data) was read and rewritten from several
+  independent goroutines — WS command handlers, the maintenance loop's scheduled provider
+  refresh, any HTTP handler building a lineup or M3U/XMLTV response — with zero coordination
+  between them. Go maps panic with a fatal, unrecoverable error on concurrent read/write; this
+  isn't a theoretical risk, it's a real crash waiting for the wrong two things to happen at once
+  (e.g. editing a channel mapping right as a scheduled provider refresh rebuilds the database).
+  Added a dedicated lock around every function that touches this map (`xepgLock` in
+  `config.go`), verified it actually fixes the problem — not just that it compiles — by getting
+  a C toolchain working so `go test -race` runs at all (it needs cgo), confirming the exact
+  unlocked access pattern reliably triggers a data race, then confirming the locked version
+  doesn't. `go test -race ./...` is now part of CI so this can't quietly regress.
+* **Fixed a broken guide URL.** While testing the fix above end-to-end, found that the app's
+  own reported XMLTV guide URL — the one shown in the dashboard and meant to be pasted into
+  Plex/Emby — pointed at `/xmltv/xteve.xml`, hardcoded, while the actual generated file is named
+  after the app (`xteve-reborn.xml` in this fork). Anyone copying the URL this app itself
+  displayed would get a 404. Root cause: this fork's rename from `xTeVe` never propagated to
+  these hardcoded literals. Fixed everywhere the filename was hardcoded instead of derived from
+  the app name, so it's also correct for anyone who renames the binary again later.
+
 #### Ported from Threadfin
 [Threadfin](https://github.com/Threadfin/Threadfin) is a more actively-developed community fork
 of xTeVe (1.7k+ stars, regular releases, adds Jellyfin support). Rather than switching to it
