@@ -93,6 +93,37 @@ Upstream's last tagged release was `2.2.0`, from 2021. Everything below is new i
   cleanly and match the project's existing compiled-output conventions, since the repo didn't
   have a documented, reproducible way to do this before.
 
+#### Security
+* **Fixed stored XSS**: channel names, group titles, and similar fields — all sourced from
+  whatever M3U/XMLTV provider is configured — were injected into the Mapping/Playlist/XMLTV/
+  Filter/Users tables via `innerHTML` instead of `textContent`. A malicious or compromised
+  provider could embed markup/script in a channel name and have it execute in the admin's
+  browser session. Fixed in the shared table-cell renderer plus three related spots (the
+  mapping-detail popup's subtitle, the post-edit row refresh, and the log viewer).
+* **Hardened password storage**: the password hashing scheme computed a fast, single HMAC-SHA256
+  over a constant message and silently ignored the per-user salt it was given, meaning identical
+  passwords hashed identically across every installation. Replaced with salted PBKDF2-HMAC-SHA256
+  at 210,000 iterations, with constant-time comparison. **Breaking change**: delete
+  `authentication.json` and recreate your user if upgrading from before this fix.
+* Fixed a panic: a malformed HTTP Basic-Auth header could crash the request goroutine on an
+  out-of-bounds slice access.
+* Hardened the session cookie (explicit `Path=/`, `SameSite=Lax`).
+
+#### Fixes sourced from upstream's stale open PRs
+xteve-project/xteve has several small, correct, never-merged PRs sitting open for years. Ported
+the ones that still apply:
+* EPG programs with no poster of their own fell back to a blank image instead of the channel's
+  logo, due to a variable-naming bug (`xteve-project/xteve#302`).
+* The server's advertised IP was whichever non-loopback address enumeration happened to hit last
+  — often wrong on a box with Docker bridges, VPN tunnels, or multiple NICs. Now detected via the
+  OS's own outbound-routing decision, falling back to the old behavior if there's no route out
+  (`xteve-project/xteve#266`).
+* The configured User-Agent was never actually sent on M3U/XMLTV downloads — it was being set on
+  the HTTP *response* instead of the *request*, a no-op (`xteve-project/xteve#398`, minus that
+  PR's unrelated bundled Dockerfile changes).
+* A few missing `resp.Body.Close()` calls and a defer-inside-a-loop that held every image-cache
+  download's file handle open until the whole batch finished instead of per-item.
+
 ---
 
 ## Requirements
