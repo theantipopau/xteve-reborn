@@ -13,58 +13,46 @@ nav p {
 #layout {
   display: block;
   height: 100%;
+  background-color: var(--bg);
 }
-
 
 .layout-left {
   display: block;
-  min-width: 150px;
-  max-width: 20%;
-  background-color: #111;
+  min-width: 220px;
+  max-width: 220px;
+  background-color: var(--bg-alt);
+  border-right: solid 1px var(--border-soft);
   height: inherit;
   float: left;
 }
 
 .layout-right {
   display: block;
-  background-color: #444;
+  background-color: var(--bg);
 }
 
 #menu-wrapper {
   height: 100%;
 }
 
-
 #logo {
   display: block;
   min-width: 180px;
   width: 100%;
-  height: 100px;
-  background: url("../img/logo_w_600x200.png");
+  height: 90px;
+  background-image: url("../img/logo-reborn-600.png");
   background-repeat: no-repeat;
-  background-position: center; 
-  background-size: 100%;
+  background-position: center;
+  background-size: 78%;
+  border-bottom: solid 1px var(--border-soft);
 }
 
-
 #page {
-  max-width: 950px;
+  max-width: 980px;
   margin: auto;
-  background-color: #444;
+  background-color: var(--bg);
 
-  /*
-  height: -webkit-calc(100% - 130px);
-  height: -moz-calc(100% - 130px);
-  height: calc(100% - 130px);
-  */
-  
-  min-height: -webkit-calc(100% - 120px);
-  min-height: -moz-calc(100% - 120px);
   min-height: calc(100% - 120px);
-  
-  
-  box-shadow: 0px 5px 5px #222;
-  
 }
 
 #uiSetting {
@@ -73,45 +61,40 @@ nav p {
 }
 
 #box input[type=text], #box input[type=password] {
-  width: -webkit-calc(100% - 20px);
-  width: -moz-calc(100% - 20px);
   width: calc(100% - 20px);
 }
 
-#box input[type=submit]{
+#box input[type=submit] {
   margin: 50px auto;
 }
 
 #settings {
   display: block;
-  padding: 10px 10px;
+  padding: 16px 20px;
 }
 
 #settings h5 {
-  margin: 50px 0px 10px 0px;
+  margin: 34px 0px 10px 0px;
 }
 
 #content-interaction .search {
   width: 200px;
-  border: 1px solid #000;
-  padding: 9px;
-  background-color: #333;
+  border: 1px solid var(--border);
+  padding: 9px 12px;
+  background-color: var(--bg-input);
+  color: var(--text);
   margin: 10px;
   float: right;
-  border-radius: 3px;
-
+  border-radius: var(--radius-sm);
 }
 
 #myStreams {
   position: fixed;
   bottom: 0px;
-  background-color: #111;
+  background-color: var(--bg-alt);
+  border-top: solid 1px var(--border-soft);
   width: 100%;
-  max-width: 950px;
-
-  /*
-  max-height: 100px;
-  */
+  max-width: 980px;
   margin-bottom: 0px;
 }
 
@@ -123,74 +106,84 @@ nav p {
 }
 
 #settings-footer {
-
 }
 
+/* First-run / login / wizard header logo */
+#header.imgCenter {
+  width: 220px;
+  height: 74px;
+  margin: 40px auto 0px auto;
+  background-image: url("../img/logo-reborn-600.png");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+}
 
-/* Wizard*/
+/* Wizard / auth card */
 #box {
-  background-color: #444;
+  background-color: var(--bg-elevated);
+  border: solid 1px var(--border);
+  border-radius: var(--radius);
   min-height: 400px;
-  
+
   display: flex;
   flex-direction: column;
   justify-content: space-between;
 }
 
-#box p{
+#box p {
   padding: 10px 0px;
 }
 
 #box-footer {
   margin-top: auto;
+  margin-bottom: 0;
 }
 
 #box-footer {
   margin: auto;
-  padding: 10px;
+  padding: 16px;
 }
 
 #headline {
-  background-color: #222;
-  border-bottom: solid 2px #222;
+  background-color: var(--bg-alt);
+  border-bottom: solid 1px var(--border-soft);
+  border-radius: var(--radius) var(--radius) 0 0;
   transition: all 0.5s;
-  padding: 10px 0px;
+  padding: 16px 0px;
   display: block;
 }
 
 #content {
   display: block;
   overflow: auto;
-  padding: 10px;
+  padding: 16px 20px;
 }
 
 /* --- */
 
-
 #clientInfo, #activeStreams, #inactiveStreams {
-  font-family: monospace;
+  font-family: "SFMono-Regular", Consolas, Menlo, monospace;
   display: block;
-  font-size: 9px;
-  background-color: #111;
-  color: #00E6FF;
-  border-bottom: solid 0px;;
-  padding: 0px;
-  letter-spacing: 1px;
+  font-size: 10px;
+  background-color: var(--bg-alt);
+  color: var(--accent);
+  padding: 6px 4px;
+  letter-spacing: 0.3px;
   overflow-x: hidden;
   border-spacing: 4px 4px;
-  border-bottom: solid 1px #444;
+  border-bottom: solid 1px var(--border-soft);
 }
 
 #myStreamsBox {
   position: relative;
   padding: 0px;
-  /*height: 100px;*/
   max-height: 150px;
-  background-color: #111;
-  color: white;
-  display:flex;
-  justify-content:center;
-  align-items:center;
+  background-color: var(--bg-alt);
+  color: var(--text);
+  display: flex;
+  justify-content: center;
+  align-items: center;
 }
 
 #openStreams {
@@ -202,15 +195,14 @@ nav p {
   right: 0px;
   bottom: 0px;
   background: url("../img/touch.png");
-  background-color: #111;
-  
-  background-position: bottom right;  
+  background-color: var(--bg-alt);
+  background-position: bottom right;
 }
 
 #allStreams {
   width: 100%;
   height: 100%;
-  padding: 2px;     
+  padding: 2px;
 }
 
 #activeStreams, #inactiveStreams {
@@ -224,48 +216,39 @@ nav p {
   width: 75px;
 }
 
-
-
-
 #inactiveStreams .tdKey {
-  color: red;
+  color: var(--danger);
 }
 
-#clientInfo .tdVal, #logInfo .tdVal, #activeStreams .tdVal, #inactiveStreams .tdVal, #mappingInfo .tdVal{
-  color: #aaa;
+#clientInfo .tdVal, #logInfo .tdVal, #activeStreams .tdVal, #inactiveStreams .tdVal, #mappingInfo .tdVal {
+  color: var(--text-muted);
   white-space: inherit;
 }
 
 #box-wrapper {
   display: inline-block;
   width: 100%;
-  
   overflow-y: scroll;
 }
 
 #content_table, #mapping-detail-table, #content_table {
   display: table;
-  
   border-collapse: collapse;
   overflow-y: scroll;
   width: 100%;
 }
 
-
 #content_table .content_table_header {
-  background-color: #333;
-  height: 50px;
-  border-bottom: solid 1px #111;
-  border-left: solid 3px #333;
+  background-color: var(--bg-elevated);
+  height: 46px;
+  border-bottom: solid 1px var(--border-soft);
+  border-left: solid 3px var(--bg-elevated);
   cursor: auto;
-
 }
-
 
 tbody {
   width: 100%;
 }
-
 
 .tableEllipsis {
   width: 150px;
@@ -282,36 +265,35 @@ tbody {
   max-width: 30px;
 }
 
-#content_table tr{
-  border-left: solid 3px 444;
-  border-bottom: solid 1px #333;
+#content_table tr {
+  border-left: solid 3px transparent;
+  border-bottom: solid 1px var(--border-soft);
   cursor: pointer;
+  transition: background-color 0.15s ease;
 }
 
 #content_table tr:hover {
-  background-color: #333;
+  background-color: var(--bg-elevated);
 }
 
 #content_table td {
-
-  padding: 0px 2px;
+  padding: 6px 4px;
 }
 
-#content_table input[type=text]{
+#content_table input[type=text] {
   width: 80%;
   min-width: 35px;
   max-width: 60px;
-  border: 0px;
-  background-color: #333;
+  border: solid 1px transparent;
+  background-color: var(--bg-input);
   margin-left: 5px;
   text-align: left;
 }
 
-#content_table input[type=checkbox]{
+#content_table input[type=checkbox] {
   max-width: 25px;
   margin: auto;
 }
-
 
 .showBulk {
   display: block;
@@ -322,35 +304,28 @@ tbody {
 }
 
 .noBulk {
-
 }
 
-#content_table tr.activeEPG{
-  border-left: solid 3px lawngreen;
+#content_table tr.activeEPG {
+  border-left: solid 3px var(--success);
 }
 
-#content_table tr.notActiveEPG{
-  border-left: solid 3px red;
+#content_table tr.notActiveEPG {
+  border-left: solid 3px var(--danger);
 }
 
-
-#logScreen p{
+#logScreen p {
   white-space: pre;
-  font-size: 10px;
-  /*
+  font-size: 11px;
+  letter-spacing: 0.3px;
+  font-family: "SFMono-Regular", Consolas, Menlo, monospace;
+  font-style: normal;
+  font-variant: normal;
   line-height: 1.6em;
-  font-family: "Arial", sans-serif;
-  */
-  letter-spacing: 1px;
-  font-family: monospace; 
-  font-size: 12px; 
-  font-style: normal; 
-  font-variant: normal; 
-  line-height: 1.6em; 
 }
 
 #popup {
-  background-color: rgba(0, 0, 0, 0.4);
+  background-color: rgba(5, 7, 12, 0.6);
   position: fixed;
   left: 0px;
   width: 100%;
@@ -359,15 +334,17 @@ tbody {
 }
 
 #mapping-detail, #user-detail, #file-detail, #popup-custom {
-  box-shadow: 0px 5px 40px #000;
+  box-shadow: var(--shadow);
   margin-top: 20px;
   margin-left: auto;
   margin-right: auto;
-  
+
   max-width: 600px;
-  background-color: #222;
-  padding: 10px;
-  overflow:auto;
+  background-color: var(--bg-elevated);
+  border: solid 1px var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  overflow: auto;
 }
 
 #popup-custom h3 {
@@ -375,8 +352,6 @@ tbody {
 }
 
 #file-detail input[type=text] {
-  width: -webkit-calc(100% - 20px);
-  width: -moz-calc(100% - 20px);
   width: calc(100% - 20px);
 }
 
@@ -388,18 +363,15 @@ tbody {
   margin-right: auto;
 }
 
-#popup-custom input[type=text], #popup-custom input[type=password], #mapping-detail input[type=text], #content_settings input[type=text], #content_settings input[type=password]{
-  border: solid 1px;
-  border-color: transparent;
-  background-color: #333;
+#popup-custom input[type=text], #popup-custom input[type=password], #mapping-detail input[type=text], #content_settings input[type=text], #content_settings input[type=password] {
+  border: solid 1px var(--border);
+  background-color: var(--bg-input);
   text-align: left;
-  width: -webkit-calc(100% - 20px);
-  width:    -moz-calc(100% - 20px);
-  width:         calc(100% - 20px);
+  width: calc(100% - 20px);
 }
 
 #popup-custom input[type=text].notAvailable {
-  border-color: red;
+  border-color: var(--danger);
   color: #666;
   cursor: not-allowed;
 }
@@ -415,10 +387,8 @@ tbody {
   width: 100%;
 }
 
-
 #mapping-detail-table td, #user-detail-table td {
   padding: 10px 0px;
-
 }
 
 #mapping-detail-table td.left, #user-detail-table td.left, #popup-custom td.left {
@@ -432,7 +402,6 @@ tbody {
 }
 
 .interaction input[type=button], .interaction input[type=submit] {
-  background-color: #000;
   min-width: 100px;
   margin: 0px 10px;
   text-align: center;
@@ -443,15 +412,17 @@ tbody {
   position: fixed;
   right: 0px;
   height: 100%;
-  width: 250px;
-  
-  background-color: #222;
-  box-shadow: 0px 0px 20px #000;
+  width: 260px;
+
+  background-color: var(--bg-elevated);
+  border-left: solid 1px var(--border);
+  box-shadow: var(--shadow);
 }
 
 #notification h5 {
-  background-color: #121212;
-  padding: 5px 10px 5px 10px;
+  background-color: var(--bg-alt);
+  padding: 8px 10px;
+  margin: 0;
 }
 
 #notification pre {
@@ -459,44 +430,40 @@ tbody {
 }
 
 #notification p {
-  font-size: 10 px;
+  font-size: 11px;
   margin: 0px;
   padding: 0px 10px 5px 10px;
 }
 
 #notification .element {
-  /*padding: 0px 5px;*/
-  margin: 5px 5px;
-  border-radius: 5px;
-  background-color: #181818;
-  border-left: 10px solid green;
+  margin: 8px 8px;
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-input);
+  border-left: 4px solid var(--success);
 }
 
-
-@media only screen and (min-width: 620px){
+@media only screen and (min-width: 620px) {
   body {
     width: 100%;
-    background-color: #444;
+    background-color: var(--bg);
   }
 
   h1 {
-    font-size: 26px;
-    letter-spacing: 3px;
+    font-size: 24px;
+    letter-spacing: 0.3px;
   }
 
   nav p {
     display: block;
   }
 
-
-
   #header_config {
     display: block;
-    height: 100px;
-    background: url("../img/logo_w_600x200.png");
+    height: 90px;
+    background-image: url("../img/logo-reborn-600.png");
     background-repeat: no-repeat;
-    
-    background-size: 300px 100px;
+    background-position: center;
+    background-size: 260px 87px;
   }
 
   #screenLog {
@@ -505,38 +472,30 @@ tbody {
     transition: none;
     background-color: transparent;
     border-bottom: solid 1px transparent;
-    box-shadow: 0px 0px 0px #222;
+    box-shadow: none;
   }
 
   #settings {
-    /*
-    height: -webkit-calc(100% - 100px);
-    height: -moz-calc(100% - 100px);
-    height: calc(100% - 100px);
-    */
     position: relative;
     overflow: auto;
   }
-
 
   .screenLogHidden {
     transform: translate(0px, 0px);
   }
 
-
   #box {
     display: block;
     min-height: 500px;
-    max-width: 500px;
-    margin: 10px auto;
-    background-color: #444;
-    box-shadow: 0px 5px 5px #222;
+    max-width: 460px;
+    margin: 40px auto;
+    background-color: var(--bg-elevated);
+    box-shadow: var(--shadow);
 
     display: flex;
     flex-direction: column;
   }
 
   #settings, #settings-footer {
-    
   }
 }

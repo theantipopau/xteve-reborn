@@ -282,7 +282,7 @@ func downloadFileFromServer(providerURL string) (filename string, body []byte, e
 		return
 	}
 
-	resp, err := http.Get(providerURL)
+	resp, err := fileDownloadHTTPClient.Get(providerURL)
 	if err != nil {
 		return
 	}

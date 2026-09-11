@@ -6,4 +6,7 @@ files
 update_xteve*.sh
 xteve
 xteve.exe
+xteve-reborn
+xteve-reborn.exe
+.devdata*/
 de.json

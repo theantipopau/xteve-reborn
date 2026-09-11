@@ -39,7 +39,7 @@ func BinaryUpdate() (err error) {
 
 		var git GitStruct
 
-		resp, err := http.Get(gitInfo)
+		resp, err := defaultHTTPClient.Get(gitInfo)
 		if err != nil {
 			ShowError(err, 6003)
 			return nil

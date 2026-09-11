@@ -10,7 +10,12 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 )
+
+var httpClient = &http.Client{
+	Timeout: 30 * time.Second,
+}
 
 // Cache : Cache strcut
 type Cache struct {
@@ -99,7 +104,7 @@ func New(path, chacheURL string, caching bool) (c *Cache, err error) {
 
 		for _, src := range c.Queue {
 
-			resp, err := http.Get(src)
+			resp, err := httpClient.Get(src)
 			if err != nil {
 				continue
 			}

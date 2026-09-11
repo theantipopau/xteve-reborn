@@ -1,7 +1,9 @@
 // Copyright 2019 marmei. All rights reserved.
+// Portions Copyright 2026 the xteve-reborn contributors.
 // Use of this source code is governed by a MIT license that can be found in the
 // LICENSE file.
-// GitHub: https://github.com/xteve-project/xTeVe
+// Originally: https://github.com/xteve-project/xTeVe
+// GitHub: https://github.com/theantipopau/xteve-reborn
 
 package main
 
@@ -36,10 +38,10 @@ var GitHub = GitHubStruct{Branch: "main", User: "theantipopau", Repo: "xteve-reb
 */
 
 // Name : Programmname
-const Name = "xTeVe"
+const Name = "xTeVe-Reborn"
 
 // Version : Version, die Build Nummer wird in der main func geparst.
-const Version = "2.2.0.0200"
+const Version = "3.0.0.0300"
 
 // DBVersion : Datanbank Version
 const DBVersion = "2.1.0"

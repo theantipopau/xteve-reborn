@@ -77,9 +77,11 @@ func serverRequest() (err error) {
 		// Check redirect 301 <---> 308
 		redirect, err := http.NewRequest("POST", Updater.URL, nil)
 
-		client := &http.Client{}
-		client.CheckRedirect = func(redirect *http.Request, via []*http.Request) error {
-			return errors.New("Redirect")
+		client := &http.Client{
+			Timeout: 15 * time.Second,
+			CheckRedirect: func(redirect *http.Request, via []*http.Request) error {
+				return errors.New("Redirect")
+			},
 		}
 
 		resp, err := client.Do(redirect)
@@ -97,7 +99,7 @@ func serverRequest() (err error) {
 		req, err := http.NewRequest("POST", Updater.URL, bytes.NewBuffer(jsonByte))
 		req.Header.Set("Content-Type", "application/json")
 
-		client = &http.Client{}
+		client = &http.Client{Timeout: 15 * time.Second}
 		resp, err = client.Do(req)
 
 		if err != nil {

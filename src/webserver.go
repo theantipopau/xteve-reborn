@@ -729,7 +729,17 @@ func Web(w http.ResponseWriter, r *http.Request) {
 
 		requestFile = file
 
-		if value, ok := webUI[requestFile]; ok {
+		if System.Dev == true {
+
+			// Local files are read directly from disk in dev mode, so newly
+			// added/changed files show up without recompiling the binary.
+			content, err = readStringFromFile(requestFile)
+			if err != nil {
+				httpStatusError(w, r, 404)
+				return
+			}
+
+		} else if value, ok := webUI[requestFile]; ok {
 
 			content = GetHTMLString(value.(string))
 
@@ -745,10 +755,21 @@ func Web(w http.ResponseWriter, r *http.Request) {
 
 	}
 
-	if value, ok := webUI[requestFile].(string); ok {
+	contentType = getContentType(requestFile)
+
+	if System.Dev == true {
+
+		// Local files are read directly from disk in dev mode, so newly
+		// added/changed files show up without recompiling the binary.
+		content, err = readStringFromFile(requestFile)
+		if err != nil {
+			httpStatusError(w, r, 404)
+			return
+		}
+
+	} else if value, ok := webUI[requestFile].(string); ok {
 
 		content = GetHTMLString(value)
-		contentType = getContentType(requestFile)
 
 		if contentType == "text/plain" {
 			w.Header().Set("Content-Disposition", "attachment; filename="+getFilenameFromPath(requestFile))
@@ -757,13 +778,6 @@ func Web(w http.ResponseWriter, r *http.Request) {
 	} else {
 		httpStatusError(w, r, 404)
 		return
-	}
-
-	contentType = getContentType(requestFile)
-
-	if System.Dev == true {
-		// Lokale Webserver Dateien werden geladen, nur für die Entwicklung
-		content, _ = readStringFromFile(requestFile)
 	}
 
 	w.Header().Add("Content-Type", contentType)

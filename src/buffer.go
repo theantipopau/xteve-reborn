@@ -663,12 +663,7 @@ func connectToStreamingServer(streamID int, playlistID string) {
 			req.Header.Set("Accept", "*/*")
 			debugRequest(req)
 
-			client := &http.Client{}
-			client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
-				return errors.New("Redirect")
-			}
-
-			resp, err := client.Do(req)
+			resp, err := streamHTTPClient.Do(req)
 
 			if resp != nil && err != nil {
 				debugResponse(resp)

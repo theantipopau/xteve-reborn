@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 )
 
 var htmlFolder string
@@ -71,8 +72,8 @@ func createMapFromFiles(folder string) string {
 	var content string
 
 	for key := range blankMap {
-		var newKey = key
-		content += `  ` + mapName + `["` + newKey + `"` + `] = "` + blankMap[key].(string) + `"` + "\n"
+		var newKey = filepath.ToSlash(key)
+		content += "  " + mapName + "[" + strconv.Quote(newKey) + "] = " + strconv.Quote(blankMap[key].(string)) + "\n"
 	}
 
 	return content
