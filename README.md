@@ -199,6 +199,37 @@ data at all.
   fired every time a file picker was dismissed without choosing a file) that just popped an empty
   dialog for no reason. All three were dead debug leftovers - removed rather than converted.
 
+#### Fixed the embedded web-asset bundle going stale, and made sure it can't again
+Production builds serve the entire `html/` folder (markup, CSS, JS, images) from a single
+generated Go file, `src/webUI.go`, embedded as base64 so the binary is self-contained. A
+production-mode smoke test turned up new icon assets 404ing that worked fine in `-dev` mode —
+the bundle had gone stale and never picked up several rounds of Web UI work. Root cause and fix,
+in order:
+* **The generator's map iteration order was random.** Every regeneration reordered its ~90+
+  entries even when nothing under `html/` had actually changed, so a real diff and a
+  same-content reshuffle looked identical — which is exactly how genuine changes kept getting
+  discarded as "just noise" during testing. Fixed by sorting entries before writing them out, so
+  regenerating with no source changes now produces a byte-identical file.
+* **The sort itself wasn't platform-stable.** It sorted on the raw, OS-native path separator
+  (`\` on Windows, `/` on Linux), which compare differently — so a bundle built on Windows and one
+  built on Linux from the *same* `html/` tree could still legitimately disagree. Fixed by sorting
+  on the already slash-normalized key instead.
+* **A `.gitattributes` line-ending rule was silently corruption-prone.** `*.ts text eol=lf`,
+  added for the TypeScript sources under `ts/`, also matched `html/video/stream-limit.ts` — an
+  MPEG-TS binary video sample that just happens to share the extension. Git's clean filter would
+  rewrite `\r\n` byte sequences inside that binary file on its next `git add`. Caught before any
+  actual corruption landed (verified with `git hash-object`, filtered vs. `--no-filters`); fixed
+  by scoping the TypeScript rule to `ts/*.ts` and explicitly marking the video file binary.
+* **16 tracked files had stale CRLF sitting in the working tree.** Left over from before
+  `.gitattributes` enforced `eol=lf` — git never retroactively fixes already-checked-out files,
+  and `git status`/`diff` hide the discrepancy entirely since they normalize on the fly for
+  comparison. The bundle generator reads files directly off disk, bypassing git's filters, so it
+  was embedding those stale CRLF bytes. A fresh checkout never has this problem, which is exactly
+  why the bug was invisible locally and only surfaced against a truly clean checkout.
+* **Added a CI check** (`tools/verify-embedded-assets`) that regenerates the bundle on every push
+  and fails the build if it doesn't match what's committed, so this class of bug gets caught
+  immediately instead of shipping silently in a release binary.
+
 ---
 
 ## Requirements
