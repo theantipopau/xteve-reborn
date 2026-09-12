@@ -396,6 +396,9 @@ func getErrMsg(errCode int) (errMsg string) {
 
 func addNotification(notification Notification) (err error) {
 
+	notificationLock.Lock()
+	defer notificationLock.Unlock()
+
 	var i int
 	var t = time.Now().UnixNano() / (int64(time.Millisecond) / int64(time.Nanosecond))
 	notification.Time = strconv.FormatInt(t, 10)

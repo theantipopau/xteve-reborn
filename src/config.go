@@ -32,16 +32,36 @@ var BufferClients sync.Map
 // Lock : Lock Map
 var Lock = sync.RWMutex{}
 
-// xepgLock guards Data.XEPG.Channels. It's read and rewritten from several
+// xepgLock guards the channel/stream database as a whole: Data.XEPG.Channels,
+// Data.XMLTV.Mapping, Data.Streams.*, Data.StreamPreviewUI.*, and Data.Filter.
+// These are all populated together by the same rebuild sequence
+// (createXEPGMapping -> createXEPGDatabase -> mapping -> cleanupXEPG ->
+// createXMLTVFile / buildDatabaseDVR) and read by the same handful of
+// request handlers, so one lock across all of them is simpler to reason
+// about than a lock per field. It's read and rewritten from several
 // independent goroutines (WS command handlers, the maintenance loop's
 // scheduled provider refresh, and any HTTP handler that builds a lineup or
 // M3U/XMLTV response) with no coordination between them; Go maps panic with
 // a fatal, unrecoverable error on concurrent read/write, so every function
-// that touches this specific map takes this lock for the duration of its
+// that touches any of this state takes this lock for the duration of its
 // access. A plain Mutex rather than RWMutex: this is a low-traffic admin
 // tool, not a high-QPS service, and a non-reentrant Mutex is much harder to
 // accidentally deadlock than an RWMutex where a read-lock can't be upgraded.
 var xepgLock sync.Mutex
+
+// streamingURLsLock guards Data.Cache.StreamingURLS, the map from opaque
+// stream IDs to the real provider URL behind them. Kept separate from
+// xepgLock rather than folded into it: this map is read on every single
+// stream start (getStreamInfo, in the hot Stream HTTP handler) and a
+// channel-surf shouldn't have to wait on a full XEPG/XMLTV rebuild, which
+// can take much longer and holds xepgLock for its whole duration.
+var streamingURLsLock sync.Mutex
+
+// notificationLock guards System.Notification, the small ring buffer of
+// recent UI notifications (e.g. "backup restored"). Trivial and rarely
+// written, but still a plain map read/written from multiple goroutines -
+// same panic risk as the others, just lower traffic.
+var notificationLock sync.Mutex
 
 // Init : Systeminitialisierung
 func Init() (err error) {

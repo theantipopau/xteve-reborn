@@ -206,6 +206,9 @@ func updateXEPG(background bool) {
 // Mapping Menü für die XMLTV Dateien erstellen
 func createXEPGMapping() {
 
+	xepgLock.Lock()
+	defer xepgLock.Unlock()
+
 	Data.XMLTV.Files = getLocalProviderFiles("xmltv")
 	Data.XMLTV.Mapping = make(map[string]interface{})
 
@@ -1030,7 +1033,9 @@ func createM3UFile() {
 		ShowError(err, 000)
 	}
 
+	streamingURLsLock.Lock()
 	saveMapToJSONFile(System.File.URLS, Data.Cache.StreamingURLS)
+	streamingURLsLock.Unlock()
 
 	return
 }

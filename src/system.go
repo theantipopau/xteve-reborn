@@ -281,6 +281,8 @@ func createStreamingURL(streamingType, playlistID, channelNumber, channelName, u
 	var streamInfo StreamInfo
 	var serverProtocol string
 
+	streamingURLsLock.Lock()
+
 	if len(Data.Cache.StreamingURLS) == 0 {
 		Data.Cache.StreamingURLS = make(map[string]StreamInfo)
 	}
@@ -313,6 +315,8 @@ func createStreamingURL(streamingType, playlistID, channelNumber, channelName, u
 
 	}
 
+	streamingURLsLock.Unlock()
+
 	switch streamingType {
 
 	case "DVR":
@@ -329,6 +333,9 @@ func createStreamingURL(streamingType, playlistID, channelNumber, channelName, u
 }
 
 func getStreamInfo(urlID string) (streamInfo StreamInfo, err error) {
+
+	streamingURLsLock.Lock()
+	defer streamingURLsLock.Unlock()
 
 	if len(Data.Cache.StreamingURLS) == 0 {
 

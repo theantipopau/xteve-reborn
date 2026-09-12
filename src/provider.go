@@ -263,7 +263,9 @@ func getProviderData(fileType, fileID string) (err error) {
 
 		case "xmltv":
 			Settings.Files.XMLTV = dataMap
+			xepgLock.Lock()
 			delete(Data.Cache.XMLTV, System.Folder.Data+dataID+fileExtension)
+			xepgLock.Unlock()
 
 		}
 

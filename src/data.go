@@ -800,6 +800,9 @@ func createFilterRules() (err error) {
 // Datenbank für das DVR System erstellen
 func buildDatabaseDVR() (err error) {
 
+	xepgLock.Lock()
+	defer xepgLock.Unlock()
+
 	System.ScanInProgress = 1
 
 	Data.Streams.All = make([]interface{}, 0, System.UnfilteredChannelLimit)

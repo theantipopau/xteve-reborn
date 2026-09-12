@@ -57,7 +57,9 @@ func maintenance() {
 					}
 
 					// XEPG Dateien erstellen
+					xepgLock.Lock()
 					Data.Cache.XMLTV = make(map[string]XMLTV)
+					xepgLock.Unlock()
 					buildXEPG(false)
 
 				}

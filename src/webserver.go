@@ -943,9 +943,13 @@ func API(w http.ResponseWriter, r *http.Request) {
 
 		response.VersionXteve = System.Version
 		response.VersionAPI = System.APIVersion
+
+		xepgLock.Lock()
 		response.StreamsActive = int64(len(Data.Streams.Active))
 		response.StreamsAll = int64(len(Data.Streams.All))
 		response.StreamsXepg = int64(Data.XEPG.XEPGCount)
+		xepgLock.Unlock()
+
 		response.EpgSource = Settings.EpgSource
 		response.URLDvr = System.Domain
 		response.URLM3U = System.ServerProtocol.M3U + "://" + System.Domain + "/m3u/" + System.AppName + ".m3u"
@@ -1026,11 +1030,27 @@ func setDefaultResponseData(response ResponseStruct, data bool) (defaults Respon
 	defaults.ClientInfo.M3U = System.Addresses.M3U
 	defaults.ClientInfo.XML = System.Addresses.XML
 	defaults.ClientInfo.OS = System.OS
+
+	xepgLock.Lock()
 	defaults.ClientInfo.Streams = fmt.Sprintf("%d / %d", len(Data.Streams.Active), len(Data.Streams.All))
+	xepgLock.Unlock()
+
 	defaults.ClientInfo.UUID = Settings.UUID
 	defaults.ClientInfo.Errors = WebScreenLog.Errors
 	defaults.ClientInfo.Warnings = WebScreenLog.Warnings
-	defaults.Notification = System.Notification
+
+	// A shallow copy, not the live map: this reference escapes into the
+	// response and gets JSON-marshaled well after this function returns,
+	// and addNotification (screen.go) can add a new one from another
+	// goroutine at any time.
+	notificationLock.Lock()
+	var notificationSnapshot = make(map[string]Notification, len(System.Notification))
+	for k, v := range System.Notification {
+		notificationSnapshot[k] = v
+	}
+	notificationLock.Unlock()
+	defaults.Notification = notificationSnapshot
+
 	defaults.Log = WebScreenLog
 
 	switch System.Branch {
@@ -1051,26 +1071,31 @@ func setDefaultResponseData(response ResponseStruct, data bool) (defaults Respon
 
 		if Settings.EpgSource == "XEPG" {
 
-			defaults.ClientInfo.XEPGCount = Data.XEPG.XEPGCount
-
 			var XEPG = make(map[string]interface{})
+
+			// A shallow copy of each map, not the live one, since this
+			// reference escapes into the response and gets JSON-marshaled
+			// well after this function returns - marshaling a map another
+			// goroutine is concurrently rebuilding (xepgLock only protects
+			// the copy itself, taken below) would panic.
+			xepgLock.Lock()
+
+			defaults.ClientInfo.XEPGCount = Data.XEPG.XEPGCount
 
 			if len(Data.Streams.Active) > 0 {
 
-				// A shallow copy, not the live map, since this reference
-				// escapes into the response and gets JSON-marshaled well
-				// after this function returns - marshaling a map another
-				// goroutine is concurrently rebuilding (xepgLock only
-				// protects the copy itself, taken below) would panic.
-				xepgLock.Lock()
 				var epgMappingSnapshot = make(map[string]interface{}, len(Data.XEPG.Channels))
 				for k, v := range Data.XEPG.Channels {
 					epgMappingSnapshot[k] = v
 				}
-				xepgLock.Unlock()
+
+				var xmltvMapSnapshot = make(map[string]interface{}, len(Data.XMLTV.Mapping))
+				for k, v := range Data.XMLTV.Mapping {
+					xmltvMapSnapshot[k] = v
+				}
 
 				XEPG["epgMapping"] = epgMappingSnapshot
-				XEPG["xmltvMap"] = Data.XMLTV.Mapping
+				XEPG["xmltvMap"] = xmltvMapSnapshot
 
 			} else {
 
@@ -1079,16 +1104,26 @@ func setDefaultResponseData(response ResponseStruct, data bool) (defaults Respon
 
 			}
 
+			xepgLock.Unlock()
+
 			defaults.XEPG = XEPG
 
 		}
 
 		defaults.Settings = Settings
 
+		// Same reasoning as above: these are rebuilt wholesale by
+		// buildDatabaseDVR under xepgLock, so reading them needs the same
+		// lock even though a plain slice-header copy (no per-element loop)
+		// is enough - buildDatabaseDVR always allocates a fresh backing
+		// array rather than mutating the one a previous read might still
+		// be holding a reference to.
+		xepgLock.Lock()
 		defaults.Data.Playlist.M3U.Groups.Text = Data.Playlist.M3U.Groups.Text
 		defaults.Data.Playlist.M3U.Groups.Value = Data.Playlist.M3U.Groups.Value
 		defaults.Data.StreamPreviewUI.Active = Data.StreamPreviewUI.Active
 		defaults.Data.StreamPreviewUI.Inactive = Data.StreamPreviewUI.Inactive
+		xepgLock.Unlock()
 
 	}
 
