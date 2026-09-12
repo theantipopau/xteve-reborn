@@ -230,6 +230,18 @@ in order:
   and fails the build if it doesn't match what's committed, so this class of bug gets caught
   immediately instead of shipping silently in a release binary.
 
+#### Wizard now ends by telling you exactly what to paste into Plex
+Feedback after `3.0.0-pre`: the setup wizard finished silently and dropped straight into the
+dashboard, leaving the user to find the right address themselves among several stat-bar fields —
+confusing on a box with more than one network interface — and figure out Plex/Emby setup
+unassisted. It now ends on a dedicated step: the exact address in a copy-button box, plus one-line
+instructions for Plex (Settings → Live TV & DVR → Set Up Plex DVR, with a manual-entry fallback if
+auto-discovery doesn't find it) and Emby/Jellyfin. While building this, found and fixed a real bug:
+the copy button called `navigator.clipboard.writeText()` unconditionally and always claimed
+success — that API requires a secure context (HTTPS or localhost), but this app is normally reached
+over plain `http://<lan-ip>:<port>`, so the write silently failed there and the toast lied. Added a
+fallback (`copyTextToClipboard()`) that reports failure honestly instead.
+
 ---
 
 ## Requirements
