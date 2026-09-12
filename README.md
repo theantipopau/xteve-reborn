@@ -144,6 +144,19 @@ the ones that still apply:
   displayed would get a 404. Root cause: this fork's rename from `xTeVe` never propagated to
   these hardcoded literals. Fixed everywhere the filename was hardcoded instead of derived from
   the app name, so it's also correct for anyone who renames the binary again later.
+* **Audited the rest of the shared state for the same class of bug**, since the XEPG fix was
+  never really about XEPG specifically — it's about anything shared between the maintenance
+  loop / WS handlers and the per-request response builder with no lock. Found and fixed four
+  more: `Data.Cache.StreamingURLS` (written on every lineup/M3U rebuild, read on every single
+  stream start — the hottest path in the app, had no lock at all; given its own dedicated
+  `streamingURLsLock` rather than reusing `xepgLock` so a channel-surf never waits on a full EPG
+  rebuild), `System.Notification` (same alias-escapes-into-a-response bug as the original XEPG
+  fix, on a different map), `Data.XMLTV.Mapping` (the exact same bug, three lines away from
+  where it had already been fixed for `Data.XEPG.Channels` — its writer had no lock either), and
+  `Data.Streams.*`/`Data.StreamPreviewUI.*`/`Data.Filter`/`Data.Playlist.M3U.Groups.*` (all
+  rebuilt wholesale with no lock, read by every WS response). Added regression tests for each,
+  verified by temporarily removing a lock and confirming `go test -race` actually catches it
+  before restoring the fix — same discipline as the original.
 
 #### Ported from Threadfin
 [Threadfin](https://github.com/Threadfin/Threadfin) is a more actively-developed community fork
