@@ -544,7 +544,21 @@
       "title": "XMLTV File",
       "placeholder": "File path or URL of the XMLTV",
       "description": "Local or remote XMLTV file"
+    },
+    "finish":
+    {
+      "title": "Add to Plex, Emby, or Jellyfin",
+      "description": "This is the only address you need - copy it into your media server's Live TV & DVR setup.",
+      "copyButton": "Copy",
+      "button": "Finish",
+      "plexSteps": "<b>Plex:</b> Settings &#8594; Live TV &amp; DVR &#8594; Set Up Plex DVR. Plex usually finds it automatically within a few seconds. If it doesn't, choose 'Don't see your HDHomeRun tuner?' and paste the address above.",
+      "embySteps": "<b>Emby or Jellyfin:</b> Live TV &#8594; Add Tuner Device &#8594; HDHomeRun, then paste the same address."
     }
+  },
+  "clipboard":
+  {
+    "copied": "Address copied to clipboard",
+    "copyFailed": "Couldn't copy automatically - please select and copy the address manually."
   },
   "login":
   {

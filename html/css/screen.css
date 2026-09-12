@@ -162,6 +162,45 @@ nav p {
   padding: 16px 20px;
 }
 
+.wizard-address-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 18px 0;
+  padding: 14px 16px;
+  background-color: var(--bg-input);
+  border: solid 1px var(--border);
+  border-radius: var(--radius);
+}
+
+.wizard-address-box code {
+  flex: 1;
+  font-size: 1.15em;
+  font-weight: 600;
+  color: var(--accent);
+  word-break: break-all;
+}
+
+.wizard-address-box input[type=button] {
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.wizard-steps {
+  margin: 4px 0 0;
+  padding-left: 22px;
+}
+
+.wizard-steps li {
+  margin-bottom: 10px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.wizard-steps b {
+  color: var(--text);
+}
+
 /* --- */
 
 #activeStreams, #inactiveStreams {

@@ -662,6 +662,9 @@ func saveWizard(request RequestStruct) (nextStep int, err error) {
 			Settings.EpgSource = value.(string)
 			nextStep = 2
 
+		case "finish":
+			nextStep = 10
+
 		case "m3u", "xmltv":
 
 			var filesMap = make(map[string]interface{})
@@ -713,12 +716,12 @@ func saveWizard(request RequestStruct) (nextStep int, err error) {
 				}
 
 				if Settings.EpgSource == "PMS" {
-					nextStep = 10
+					nextStep = 4
 				}
 
 			case "xmltv":
 				Settings.Files.XMLTV = filesMap
-				nextStep = 10
+				nextStep = 4
 
 				err = getProviderData(key, dataID)
 

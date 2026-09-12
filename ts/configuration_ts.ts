@@ -82,6 +82,47 @@ class WizardItem extends WizardCategory {
 
       break
 
+      case "finish":
+        var address = SERVER["clientInfo"]["DVR"]
+
+        var box = document.createElement("DIV")
+        box.className = "wizard-address-box"
+
+        var code = document.createElement("CODE")
+        code.innerText = address
+        box.appendChild(code)
+
+        var copyButton = document.createElement("INPUT")
+        copyButton.setAttribute("type", "button")
+        copyButton.setAttribute("value", "{{.wizard.finish.copyButton}}")
+        copyButton.onclick = function() {
+          copyTextToClipboard(address)
+        }
+        box.appendChild(copyButton)
+
+        doc.appendChild(box)
+
+        var steps = document.createElement("UL")
+        steps.className = "wizard-steps"
+
+        var plexStep = document.createElement("LI")
+        plexStep.innerHTML = "{{.wizard.finish.plexSteps}}"
+        steps.appendChild(plexStep)
+
+        var embyStep = document.createElement("LI")
+        embyStep.innerHTML = "{{.wizard.finish.embySteps}}"
+        steps.appendChild(embyStep)
+
+        doc.appendChild(steps)
+
+        description = "{{.wizard.finish.description}}"
+
+        var nextButton = document.getElementById("next") as HTMLInputElement
+        nextButton.value = "{{.wizard.finish.button}}"
+        nextButton.onclick = finishWizard
+
+      break
+
       default:
         console.log(key)
         break;
@@ -169,9 +210,20 @@ function saveWizard() {
   console.log(data)
 }
 
+function finishWizard() {
+
+  var cmd = "saveWizard"
+  var data = new Object()
+  data["wizard"] = {finish: true}
+
+  var server:Server = new Server(cmd)
+  server.request(data)
+}
+
 // Wizard
 var configurationWizard = new Array()
 configurationWizard.push(new WizardItem("tuner", "{{.wizard.tuner.title}}"))
 configurationWizard.push(new WizardItem("epgSource", "{{.wizard.epgSource.title}}"))
 configurationWizard.push(new WizardItem("m3u", "{{.wizard.m3u.title}}"))
 configurationWizard.push(new WizardItem("xmltv", "{{.wizard.xmltv.title}}"))
+configurationWizard.push(new WizardItem("finish", "{{.wizard.finish.title}}"))

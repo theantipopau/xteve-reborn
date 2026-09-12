@@ -8,6 +8,54 @@ function escapeHTML(value:string):string {
   return div.innerHTML
 }
 
+// copyTextToClipboard copies text on both HTTPS/localhost pages (where the
+// modern Clipboard API works) and plain-HTTP LAN pages (where it doesn't -
+// navigator.clipboard requires a secure context, but this app is normally
+// reached over http://<lan-ip>:<port>, not localhost). Falls back to the
+// old select-and-execCommand trick, which has no such restriction. Reports
+// success/failure via toast rather than assuming the write worked, since a
+// silent failure here would tell the user something was copied when it
+// wasn't.
+function copyTextToClipboard(text:string):void {
+
+  function succeeded():void {
+    showToast("{{.clipboard.copied}}", "success")
+  }
+
+  function failed():void {
+    showToast("{{.clipboard.copyFailed}}", "error")
+  }
+
+  function legacyCopy():boolean {
+    var textarea = document.createElement("TEXTAREA")
+    textarea.value = text
+    textarea.style.position = "fixed"
+    textarea.style.opacity = "0"
+    document.body.appendChild(textarea)
+    textarea.focus()
+    textarea.select()
+
+    var success = false
+    try {
+      success = document.execCommand("copy")
+    } catch (e) {
+      success = false
+    }
+
+    document.body.removeChild(textarea)
+    return success
+  }
+
+  if (navigator.clipboard && window.isSecureContext) {
+    navigator.clipboard.writeText(text).then(succeeded, function() {
+      legacyCopy() ? succeeded() : failed()
+    })
+    return
+  }
+
+  legacyCopy() ? succeeded() : failed()
+}
+
 // showToast replaces the old native alert() popups, which block the whole
 // page until dismissed and look jarring next to the rest of the UI. Errors
 // stay up longer than informational messages since they're more likely to

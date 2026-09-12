@@ -62,6 +62,7 @@ type RequestStruct struct {
 	// Wizard
 	Wizard struct {
 		EpgSource *string `json:"epgSource,omitempty"`
+		Finish    bool    `json:"finish,omitempty"`
 		M3U       *string `json:"m3u,omitempty"`
 		Tuner     *int    `json:"tuner,omitempty"`
 		XMLTV     *string `json:"xmltv,omitempty"`
