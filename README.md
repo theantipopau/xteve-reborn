@@ -279,7 +279,10 @@ in order:
 ---
 
 ## Downloads
-This fork does not (yet) publish prebuilt binaries — build from source (below).
+Prebuilt binaries (Windows/Linux/macOS, amd64+arm64) are published on the
+[Releases page](https://github.com/theantipopau/xteve-reborn/releases). The current release is a
+prerelease (`3.0.0-pre`) — functionally complete and CI-tested, but new enough to not have real-world
+mileage yet. You can also build from source (below).
 
 #### Docker images from the original project (Linux 64 Bit)
 Thanks to @alturismo and @LeeD for creating the Docker Images.
