@@ -10,152 +10,124 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
-	"strings"
 	"syscall"
 )
 
-// DoUpdate : Update binary
-func DoUpdate(fileType, filenameBIN string) (err error) {
+// DoUpdate downloads the release zip at zipURL, extracts binaryName from
+// it, and replaces the currently-running executable with it before
+// restarting the process. The old binary is kept as a backup
+// (_old_<name>) until the new one is confirmed running, and restored if
+// any step fails partway through.
+func DoUpdate(zipURL, binaryName string) (err error) {
 
-	var url string
-	switch fileType {
-	case "bin":
-		url = Updater.Response.UpdateBIN
-	case "zip":
-		url = Updater.Response.UpdateZIP
+	if len(zipURL) == 0 {
+		return
 	}
 
 	switch runtime.GOOS {
 	case "windows":
-		filenameBIN = filenameBIN + ".exe"
+		binaryName = binaryName + ".exe"
 	}
 
-	if len(url) > 0 {
-		log.Println("["+strings.ToUpper(fileType)+"]", "New version ("+Updater.Name+"):", Updater.Response.Version)
+	log.Println("[UPDATE]", "Downloading", zipURL)
 
-		// Download new binary
-		resp, err := http.Get(url)
-		if err != nil {
-			return err
-		}
-		defer resp.Body.Close()
-		log.Println("["+strings.ToUpper(fileType)+"]", "Download new version...")
+	resp, err := http.Get(zipURL)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
 
-		if resp.StatusCode != http.StatusOK {
-			log.Println("["+strings.ToUpper(fileType)+"]", "Download new version...OK")
-			return fmt.Errorf("bad status: %s", resp.Status)
-		}
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("bad status: %s", resp.Status)
+	}
 
-		// Change binary filename to .filename
-		binary, err := os.Executable()
-		var filename = getFilenameFromPath(binary)
-		var path = getPlatformPath(binary)
-		var oldBinary = path + "_old_" + filename
-		var newBinary = binary
+	binary, err := os.Executable()
+	if err != nil {
+		return err
+	}
+	var filename = getFilenameFromPath(binary)
+	var path = getPlatformPath(binary)
+	var oldBinary = path + "_old_" + filename
+	var newBinary = binary
 
-		// ZIP
-		var tmpFolder = path + "tmp"
-		var tmpFile = tmpFolder + string(os.PathSeparator) + filenameBIN
+	var tmpFolder = path + "tmp"
+	var tmpFile = tmpFolder + string(os.PathSeparator) + binaryName
 
-		//fmt.Println(binary, path+"."+filename)
-		os.Rename(newBinary, oldBinary)
+	os.Rename(newBinary, oldBinary)
 
-		// Save the new binary with the old file name
-		out, err := os.Create(binary)
+	// Save the downloaded zip under the current binary's own path, then
+	// extract it into a temp folder and pull just the binary back out -
+	// mirrors how the file arrives from GitHub (zipped) while keeping the
+	// rest of the swap logic format-agnostic.
+	out, err := os.Create(binary)
+	if err != nil {
+		restorOldBinary(oldBinary, newBinary)
+		return err
+	}
+	defer out.Close()
+
+	_, err = io.Copy(out, resp.Body)
+	if err != nil {
+		restorOldBinary(oldBinary, newBinary)
+		return err
+	}
+
+	log.Println("[UPDATE]", "Extracting update")
+
+	err = extractZIP(binary, tmpFolder)
+	binary = newBinary
+
+	if err != nil {
+		restorOldBinary(oldBinary, newBinary)
+		return err
+	}
+
+	err = copyFile(tmpFile, binary)
+	if err != nil {
+		restorOldBinary(oldBinary, newBinary)
+		return err
+	}
+
+	os.RemoveAll(tmpFolder)
+
+	err = os.Chmod(binary, 0755)
+	out.Close()
+
+	log.Println("[UPDATE]", "Update successful, restarting")
+
+	// Restart binary (Windows)
+	if runtime.GOOS == "windows" {
+
+		bin, err := os.Executable()
+
 		if err != nil {
 			restorOldBinary(oldBinary, newBinary)
 			return err
 		}
-		defer out.Close()
 
-		// Write the body to file
+		var pid = os.Getpid()
+		var process, _ = os.FindProcess(pid)
 
-		_, err = io.Copy(out, resp.Body)
-		if err != nil {
-			restorOldBinary(oldBinary, newBinary)
-			return err
-		}
+		if proc, err := start(bin); err == nil {
 
-		// Update as a ZIP file
-		if fileType == "zip" {
-
-			log.Println("["+strings.ToUpper(fileType)+"]", "Update file:", filenameBIN)
-			log.Println("["+strings.ToUpper(fileType)+"]", "Unzip ZIP file...")
-			err = extractZIP(binary, tmpFolder)
-
-			binary = newBinary
-
-			if err != nil {
-
-				log.Println("["+strings.ToUpper(fileType)+"]", "Unzip ZIP file...ERROR")
-
-				restorOldBinary(oldBinary, newBinary)
-
-				return err
-			} else {
-
-				log.Println("["+strings.ToUpper(fileType)+"]", "Unzip ZIP file...OK")
-				log.Println("["+strings.ToUpper(fileType)+"]", "Copy binary file...")
-
-				err = copyFile(tmpFile, binary)
-				if err == nil {
-					log.Println("["+strings.ToUpper(fileType)+"]", "Copy binary file...OK")
-				} else {
-
-					log.Println("["+strings.ToUpper(fileType)+"]", "Copy binary file...ERROR")
-					restorOldBinary(oldBinary, newBinary)
-
-					return err
-				}
-
-				os.RemoveAll(tmpFolder)
-			}
-
-		}
-
-		// Set the permission
-		err = os.Chmod(binary, 0755)
-
-		// Close the new file !Windows
-		out.Close()
-
-		log.Println("["+strings.ToUpper(fileType)+"]", "Update Successful")
-
-		// Restart binary (Windows)
-		if runtime.GOOS == "windows" {
-
-			bin, err := os.Executable()
-
-			if err != nil {
-				restorOldBinary(oldBinary, newBinary)
-				return err
-			}
-
-			var pid = os.Getpid()
-			var process, _ = os.FindProcess(pid)
-
-			if proc, err := start(bin); err == nil {
-
-				os.RemoveAll(oldBinary)
-				process.Kill()
-				proc.Wait()
-
-			} else {
-				restorOldBinary(oldBinary, newBinary)
-			}
+			os.RemoveAll(oldBinary)
+			process.Kill()
+			proc.Wait()
 
 		} else {
+			restorOldBinary(oldBinary, newBinary)
+		}
 
-			// Restart binary (Linux and UNIX)
-			file, _ := os.Executable()
-			os.RemoveAll(oldBinary)
-			err = syscall.Exec(file, os.Args, os.Environ())
-			if err != nil {
-				restorOldBinary(oldBinary, newBinary)
-				log.Fatal(err)
-				return err
-			}
+	} else {
 
+		// Restart binary (Linux and UNIX)
+		file, _ := os.Executable()
+		os.RemoveAll(oldBinary)
+		err = syscall.Exec(file, os.Args, os.Environ())
+		if err != nil {
+			restorOldBinary(oldBinary, newBinary)
+			log.Println("[UPDATE] restart failed:", err)
+			return err
 		}
 
 	}
@@ -166,7 +138,7 @@ func DoUpdate(fileType, filenameBIN string) (err error) {
 func start(args ...string) (p *os.Process, err error) {
 
 	if args[0], err = exec.LookPath(args[0]); err == nil {
-		//fmt.Println(args[0])
+
 		var procAttr os.ProcAttr
 		procAttr.Files = []*os.File{os.Stdin, os.Stdout, os.Stderr}
 		p, err := os.StartProcess(args[0], args, &procAttr)
@@ -183,15 +155,6 @@ func start(args ...string) (p *os.Process, err error) {
 func restorOldBinary(oldBinary, newBinary string) {
 	os.RemoveAll(newBinary)
 	os.Rename(oldBinary, newBinary)
-}
-
-func getPlatformFile(filename string) string {
-
-	path, file := filepath.Split(filename)
-	var newPath = filepath.Dir(path)
-	var newFileName = newPath + string(os.PathSeparator) + file
-
-	return newFileName
 }
 
 func getFilenameFromPath(path string) string {
@@ -234,6 +197,7 @@ func extractZIP(archive, target string) (err error) {
 	if err != nil {
 		return err
 	}
+	defer reader.Close()
 
 	if err := os.MkdirAll(target, 0755); err != nil {
 		return err

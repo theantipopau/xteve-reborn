@@ -28,7 +28,14 @@ type GitHubStruct struct {
 
 // GitHub : GitHub Account
 // If you want to fork this project, enter your Github account here. This prevents a newer version of xTeVe from updating your version.
-var GitHub = GitHubStruct{Branch: "main", User: "theantipopau", Repo: "xteve-reborn", Update: false}
+var GitHub = GitHubStruct{Branch: "main", User: "theantipopau", Repo: "xteve-reborn", Update: true}
+
+// ReleaseTag is the exact git tag this binary was built from (e.g.
+// "v3.0.0-pre.2"). Set at build time for official release binaries via
+// -ldflags "-X main.ReleaseTag=vX.Y.Z" (see tools/release/build-release.ps1);
+// left empty for a plain `go build .`, which disables update checking since
+// there'd be no reliable version to compare against.
+var ReleaseTag string
 
 /*
 	Branch: GitHub Branch
@@ -77,6 +84,7 @@ func main() {
 	system.DBVersion = DBVersion
 	system.GitHub = GitHub
 	system.Name = Name
+	system.ReleaseTag = ReleaseTag
 	system.Version = strings.Join(build[0:len(build)-1], ".")
 
 	// Panic !!!

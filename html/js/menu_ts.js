@@ -715,6 +715,16 @@ function createLayout() {
             document.getElementById(keys[i]).innerHTML = obj[keys[i]];
         }
     }
+    // Update banner
+    if (document.getElementById("updateBanner")) {
+        if (obj["updateAvailable"] == true) {
+            document.getElementById("updateBannerText").innerHTML = "{{.update.available}} " + escapeHTML(obj["updateVersion"]);
+            showElement("updateBanner", true);
+        }
+        else {
+            showElement("updateBanner", false);
+        }
+    }
     if (!document.getElementById("main-menu")) {
         return;
     }

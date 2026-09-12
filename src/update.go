@@ -1,163 +1,112 @@
 package src
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 
 	up2date "xteve-reborn/src/internal/up2date/client"
 
 	"reflect"
 )
 
-// BinaryUpdate : Binary Update Prozess. Git Branch master und beta wird von GitHub geladen.
-func BinaryUpdate() (err error) {
+// checkForRelease queries GitHub for the newest release and reports
+// whether it's actually newer than the running binary. Shared by the
+// automatic startup/scheduled check and the manual "Check for Updates" UI
+// action so both apply the exact same logic. Caches the verdict on
+// System.UpdateAvailable/UpdateVersion so the dashboard can display it
+// without making its own GitHub API call on every WS response.
+func checkForRelease() (release up2date.Release, isUpdate bool, err error) {
 
-	if System.GitHub.Update == false {
-		showWarning(2099)
+	if len(System.ReleaseTag) == 0 {
+		err = errors.New("not a release build (no version to compare against)")
 		return
 	}
 
-	var debug string
-
-	var updater = &up2date.Updater
-	updater.Name = System.Update.Name
-	updater.Branch = System.Branch
-
-	up2date.Init()
-
-	switch System.Branch {
-
-	// Update von GitHub
-	case "master", "beta":
-
-		var gitInfo = fmt.Sprintf("%s/%s/info.json?raw=true", System.Update.Git, System.Branch)
-		var zipFile = fmt.Sprintf("%s/%s/%s_%s_%s.zip?raw=true", System.Update.Git, System.Branch, System.AppName, System.OS, System.ARCH)
-		var body []byte
-
-		var git GitStruct
-
-		resp, err := defaultHTTPClient.Get(gitInfo)
-		if err != nil {
-			ShowError(err, 6003)
-			return nil
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-
-			if resp.StatusCode == 404 {
-				err = fmt.Errorf("Update Server: %s (%s)", http.StatusText(resp.StatusCode), gitInfo)
-				ShowError(err, 6003)
-				return nil
-			}
-
-			err = fmt.Errorf("%d: %s (%s)", resp.StatusCode, http.StatusText(resp.StatusCode), gitInfo)
-
-			return err
-		}
-
-		body, err = ioutil.ReadAll(resp.Body)
-
-		err = json.Unmarshal(body, &git)
-		if err != nil {
-			return err
-		}
-
-		updater.Response.Status = true
-		updater.Response.UpdateZIP = zipFile
-		updater.Response.Version = git.Version
-		updater.Response.Filename = git.Filename
-
-	// Update vom eigenen Server
-	default:
-
-		updater.URL = Settings.UpdateURL
-
-		if len(updater.URL) == 0 {
-			showInfo(fmt.Sprintf("Update URL:No server URL specified, update will not be performed. Branch: %s", System.Branch))
-			return
-		}
-
-		showInfo("Update URL:" + updater.URL)
-		fmt.Println("-----------------")
-
-		// Versionsinformationen vom Server laden
-		err = up2date.GetVersion()
-		if err != nil {
-
-			debug = err.Error()
-			showDebug(debug, 1)
-
-			return nil
-		}
-
-		if len(updater.Response.Reason) > 0 {
-
-			err = fmt.Errorf("Update Server: %s", updater.Response.Reason)
-			ShowError(err, 6002)
-
-			return nil
-		}
-
+	release, err = up2date.GetLatestRelease(System.GitHub.User, System.GitHub.Repo, System.AppName)
+	if err != nil {
+		return
 	}
 
-	var currentVersion = System.Version + "." + System.Build
+	if release.Found == false {
+		err = fmt.Errorf("no release asset found for %s/%s", System.OS, System.ARCH)
+		return
+	}
 
-	// Versionsnummer überprüfen
-	if updater.Response.Version > currentVersion && updater.Response.Status == true {
+	isUpdate = up2date.IsNewer(System.ReleaseTag, release.Tag)
 
-		if Settings.XteveAutoUpdate == true {
-			// Update durchführen
-			var fileType, url string
+	updateStateLock.Lock()
+	System.UpdateAvailable = isUpdate
+	System.UpdateVersion = release.Tag
+	updateStateLock.Unlock()
 
-			showInfo(fmt.Sprintf("Update Available:Version: %s", updater.Response.Version))
+	return
+}
 
-			switch System.Branch {
+// BinaryUpdate checks GitHub's Releases API for a newer build of this fork
+// and, if Settings.XteveAutoUpdate is on, installs it. Always safe to call:
+// it no-ops if update checking is disabled, or if this binary wasn't built
+// through the official release process (System.ReleaseTag empty - a plain
+// `go build .` from source has no reliable version to compare against).
+func BinaryUpdate() (err error) {
 
-			// Update von GitHub
-			case "master", "beta":
-				showInfo(fmt.Sprintf("Update Server:GitHub"))
+	if System.GitHub.Update == false {
+		return
+	}
 
-			// Update vom eigenen Server
-			default:
-				showInfo(fmt.Sprintf("Update Server:%s", Settings.UpdateURL))
+	release, isUpdate, err := checkForRelease()
+	if err != nil {
+		showDebug("Update:"+err.Error(), 1)
+		return nil
+	}
 
-			}
+	if isUpdate == false {
+		return nil
+	}
 
-			showInfo(fmt.Sprintf("Start Update:Branch: %s", updater.Branch))
+	showHighlight(fmt.Sprintf("Update available:%s (you're on %s)", release.Tag, System.ReleaseTag))
 
-			// Neue Version als BIN Datei herunterladen
-			if len(updater.Response.UpdateBIN) > 0 {
-				url = updater.Response.UpdateBIN
-				fileType = "bin"
-			}
-
-			// Neue Version als ZIP Datei herunterladen
-			if len(updater.Response.UpdateZIP) > 0 {
-				url = updater.Response.UpdateZIP
-				fileType = "zip"
-			}
-
-			if len(url) > 0 {
-
-				err = up2date.DoUpdate(fileType, updater.Response.Filename)
-				if err != nil {
-					ShowError(err, 6002)
-				}
-
-			}
-
-		} else {
-			// Hinweis ausgeben
-			showWarning(6004)
+	if Settings.XteveAutoUpdate == true {
+		err = installRelease(release)
+		if err != nil {
+			ShowError(err, 6002)
 		}
-
 	}
 
 	return nil
+}
+
+func installRelease(release up2date.Release) (err error) {
+	showInfo(fmt.Sprintf("Update:Installing %s...", release.Tag))
+	return up2date.DoUpdate(release.ZipURL, release.Filename)
+}
+
+// CheckForUpdate re-checks GitHub for a newer release, for the manual
+// "Check for Updates" WS command - always a fresh check rather than
+// trusting a possibly-stale result from an earlier automatic one.
+func CheckForUpdate() (available bool, latestVersion string, err error) {
+
+	release, isUpdate, err := checkForRelease()
+	if err != nil {
+		return false, "", err
+	}
+
+	return isUpdate, release.Tag, nil
+}
+
+// InstallAvailableUpdate re-checks for and, if one is still available,
+// installs a newer release - for the manual "Install Now" WS command.
+func InstallAvailableUpdate() (err error) {
+
+	release, isUpdate, err := checkForRelease()
+	if err != nil {
+		return err
+	}
+
+	if isUpdate == false {
+		return errors.New("no update available")
+	}
+
+	return installRelease(release)
 }
 
 func conditionalUpdateChanges() (err error) {

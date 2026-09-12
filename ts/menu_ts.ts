@@ -879,11 +879,21 @@ function createLayout() {
   var obj = SERVER["clientInfo"]
   var keys = getObjKeys(obj);
   for (var i = 0; i < keys.length; i++) {
-    
+
     if (document.getElementById(keys[i])) {
       document.getElementById(keys[i]).innerHTML = obj[keys[i]];
     }
-  
+
+  }
+
+  // Update banner
+  if (document.getElementById("updateBanner")) {
+    if (obj["updateAvailable"] == true) {
+      document.getElementById("updateBannerText").innerHTML = "{{.update.available}} " + escapeHTML(obj["updateVersion"])
+      showElement("updateBanner", true)
+    } else {
+      showElement("updateBanner", false)
+    }
   }
 
   if (!document.getElementById("main-menu")) {

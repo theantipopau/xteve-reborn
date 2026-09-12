@@ -566,6 +566,27 @@ func WS(w http.ResponseWriter, r *http.Request) {
 					System.ConfigurationWizard = false
 					response.Reload = true
 			*/
+
+		case "checkForUpdates":
+
+			available, latestVersion, errNew := CheckForUpdate()
+			if errNew != nil {
+				response.Alert = errNew.Error()
+			} else if available {
+				response.Alert = fmt.Sprintf("Update available: %s", latestVersion)
+			} else {
+				response.Alert = "You're up to date"
+			}
+
+		case "installUpdate":
+
+			errNew := InstallAvailableUpdate()
+			if errNew != nil {
+				response.Alert = errNew.Error()
+			} else {
+				response.Alert = "Update installed, restarting..."
+			}
+
 		default:
 			fmt.Println("+ + + + + + + + + + +", request.Cmd)
 
@@ -1038,6 +1059,11 @@ func setDefaultResponseData(response ResponseStruct, data bool) (defaults Respon
 	defaults.ClientInfo.UUID = Settings.UUID
 	defaults.ClientInfo.Errors = WebScreenLog.Errors
 	defaults.ClientInfo.Warnings = WebScreenLog.Warnings
+
+	updateStateLock.Lock()
+	defaults.ClientInfo.UpdateAvailable = System.UpdateAvailable
+	defaults.ClientInfo.UpdateVersion = System.UpdateVersion
+	updateStateLock.Unlock()
 
 	// A shallow copy, not the live map: this reference escapes into the
 	// response and gets JSON-marshaled well after this function returns,

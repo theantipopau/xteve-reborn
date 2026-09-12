@@ -230,6 +230,24 @@ class SettingsCategory {
         setting.appendChild(tdRight)
         break
 
+      case "xteveAutoUpdate":
+        var tdLeft = document.createElement("TD")
+        tdLeft.innerHTML = "{{.settings.xteveAutoUpdate.title}}" + ":"
+
+        var tdRight = document.createElement("TD")
+        var input = content.createCheckbox(settingsKey)
+        input.checked = data
+        input.setAttribute("onchange", "javascript: this.className = 'changed'")
+        tdRight.appendChild(input)
+
+        var checkButton = content.createInput("button", "", "{{.button.checkForUpdates}}")
+        checkButton.setAttribute("onclick", "javascript: checkForUpdates();")
+        tdRight.appendChild(checkButton)
+
+        setting.appendChild(tdLeft)
+        setting.appendChild(tdRight)
+        break
+
       case "cache.images":
         var tdLeft = document.createElement("TD")
         tdLeft.innerHTML = "{{.settings.cacheImages.title}}" + ":"
@@ -470,6 +488,10 @@ class SettingsCategory {
 
       case "files.update":
         text = "{{.settings.filesUpdate.description}}"
+        break
+
+      case "xteveAutoUpdate":
+        text = "{{.settings.xteveAutoUpdate.description}}"
         break
 
       case "cache.images":

@@ -137,7 +137,10 @@ func loadSettings() (settings SettingsStruct, err error) {
 	defaults["uuid"] = createUUID()
 	defaults["udpxy"] = ""
 	defaults["version"] = System.DBVersion
-	defaults["xteveAutoUpdate"] = true
+	// Off by default: checking for updates is safe and happens regardless,
+	// but installing one replaces the running binary and restarts the
+	// process, which shouldn't happen silently unless the admin opts in.
+	defaults["xteveAutoUpdate"] = false
 	defaults["temp.path"] = System.Folder.Temp
 
 	// Default Werte setzen

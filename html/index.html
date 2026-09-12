@@ -54,6 +54,7 @@
             <div class="stat">
               <span class="stat-label">Version</span>
               <span class="stat-value" id="version">&nbsp;</span>
+              <span id="checkForUpdates" class="stat-action" onclick="javascript: checkForUpdates();">Check for updates</span>
             </div>
             <div class="stat">
               <span class="stat-label">Streams</span>
@@ -99,6 +100,11 @@
               <span class="stat-label">XEPG URL</span>
               <span class="stat-value" id="xepg-url">&nbsp;</span>
             </div>
+          </div>
+
+          <div id="updateBanner" class="none">
+            <span id="updateBannerText"></span>
+            <input type="button" id="updateBannerButton" value="Install Now" onclick="javascript: installUpdate();">
           </div>
 
           <div id="myStreamsBox" class="notVisible">

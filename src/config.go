@@ -63,6 +63,13 @@ var streamingURLsLock sync.Mutex
 // same panic risk as the others, just lower traffic.
 var notificationLock sync.Mutex
 
+// updateStateLock guards System.UpdateAvailable/System.UpdateVersion, the
+// cached result of the last update check. Not a map, so no panic risk, but
+// still a genuine data race without a lock: written by BinaryUpdate's
+// scheduled/startup check or the manual "Check for Updates" command, read
+// by every WS response.
+var updateStateLock sync.Mutex
+
 // Init : Systeminitialisierung
 func Init() (err error) {
 
@@ -87,11 +94,6 @@ func Init() (err error) {
 
 	// Default Logeinträge, wird später von denen aus der settings.json überschrieben. Muss gemacht werden, damit die ersten Einträge auch im Log (webUI aangezeigt werden)
 	Settings.LogEntriesRAM = 500
-
-	// Variablen für den Update Prozess
-	//System.Update.Git = "https://github.com/xteve-project/xTeVe-Downloads/blob"
-	System.Update.Git = fmt.Sprintf("https://github.com/%s/%s/blob", System.GitHub.User, System.GitHub.Repo)
-	System.Update.Name = "xteve_2"
 
 	// Ordnerpfade festlegen
 	var tempFolder = os.TempDir() + string(os.PathSeparator) + System.AppName + string(os.PathSeparator)

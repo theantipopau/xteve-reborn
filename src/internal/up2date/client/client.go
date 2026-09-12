@@ -1,134 +1,103 @@
+// Package up2date checks GitHub's Releases API for a newer build of this
+// fork and, if the admin has opted in, downloads and installs it.
+//
+// The original xTeve self-updater this package replaces spoke a proprietary
+// protocol to a custom update server the original author ran - a server
+// this fork has no access to and never will, which is exactly why
+// self-update was hardcoded off earlier (see xteve.go). Pointing that same
+// protocol at this fork's own GitHub repo wasn't an option since there's no
+// server behind it here at all; this package talks to GitHub's public
+// Releases API directly instead, using the release-asset naming this
+// fork's own release process already produces
+// (xteve-reborn_<version>_<os>_<arch>.zip).
 package up2date
 
 import (
-	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
-	"io/ioutil"
-	"net"
 	"net/http"
-	"net/url"
 	"runtime"
+	"strings"
 	"time"
 )
 
-// ClientInfo : Information about the key (NAME OS, ARCH, UUID, KEY)
-type ClientInfo struct {
-	Arch   string `json:"arch,required"`
-	Branch string `json:"branch,required"`
-	CMD    string `json:"cmd,omitempty"`
-	Name   string `json:"name,required"`
-	OS     string `json:"os,required"`
-	URL    string `json:"url,required"`
-
-	Response ServerResponse `json:"response,omitempty"`
+// releaseAsset is one downloadable file attached to a GitHub release.
+type releaseAsset struct {
+	Name               string `json:"name"`
+	BrowserDownloadURL string `json:"browser_download_url"`
 }
 
-// ServerResponse : Response from server after client request
-type ServerResponse struct {
-	Status    bool   `json:"status,omitempty"`
-	Reason    string `json:"reason,omitempty"`
-	Version   string `json:"version,omitempty"`
-	UpdateBIN string `json:"update.url.bin,omitempty"`
-	UpdateZIP string `json:"update.url.zip,omitempty"`
-	Filename  string `json:"filename.bin,omitempty"`
+// releaseInfo is the subset of GitHub's release API response this package
+// actually uses.
+type releaseInfo struct {
+	TagName string         `json:"tag_name"`
+	Draft   bool           `json:"draft"`
+	Assets  []releaseAsset `json:"assets"`
 }
 
-// Updater : Client infos
-var Updater ClientInfo
-
-// UpdateURL : URL for the new binary
-var UpdateURL string
-
-// Init : Init
-func Init() {
-	Updater.OS = runtime.GOOS
-	Updater.Arch = runtime.GOARCH
+// Release describes an update found on GitHub: the release tag and the
+// download URL for the asset matching the running binary's OS/architecture.
+type Release struct {
+	Found    bool
+	Tag      string
+	ZipURL   string
+	Filename string
 }
 
-// GetVersion : Information about the latest version
-func GetVersion() (err error) {
+var httpClient = &http.Client{Timeout: 10 * time.Second}
 
-	Updater.CMD = "getVersion"
-	err = serverRequest()
-	return
-}
+// GetLatestRelease queries GitHub's Releases API for the newest release of
+// owner/repo and looks for the asset matching the running binary's
+// OS/architecture. Deliberately uses the /releases list endpoint rather
+// than /releases/latest: the latter explicitly excludes prereleases, and
+// this fork is still shipping those. The list is returned newest-first, so
+// the first non-draft entry is the one being checked.
+func GetLatestRelease(owner, repo, binaryName string) (release Release, err error) {
 
-func serverRequest() (err error) {
+	var url = fmt.Sprintf("https://api.github.com/repos/%s/%s/releases", owner, repo)
 
-	var serverResponse ServerResponse
-	jsonByte, err := json.MarshalIndent(Updater, "", "  ")
-	if err == nil {
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		return
+	}
+	req.Header.Set("Accept", "application/vnd.github+json")
 
-		// Serververbindung prüfen
-		u, err := url.Parse(Updater.URL)
-		if err != nil {
-			return err
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		err = fmt.Errorf("GitHub API: %d %s", resp.StatusCode, resp.Status)
+		return
+	}
+
+	var releases []releaseInfo
+	err = json.NewDecoder(resp.Body).Decode(&releases)
+	if err != nil {
+		return
+	}
+
+	for _, r := range releases {
+
+		if r.Draft {
+			continue
 		}
-		var server = u.Host
 
-		timeout := time.Duration(1 * time.Second)
-		_, err = net.DialTimeout("tcp", server, timeout)
-		if err != nil {
-			return err
-		}
+		var assetName = fmt.Sprintf("%s_%s_%s_%s.zip", binaryName, strings.TrimPrefix(r.TagName, "v"), runtime.GOOS, runtime.GOARCH)
 
-		// Check redirect 301 <---> 308
-		redirect, err := http.NewRequest("POST", Updater.URL, nil)
+		for _, asset := range r.Assets {
 
-		client := &http.Client{
-			Timeout: 15 * time.Second,
-			CheckRedirect: func(redirect *http.Request, via []*http.Request) error {
-				return errors.New("Redirect")
-			},
-		}
-
-		resp, err := client.Do(redirect)
-		if resp != nil {
-			defer resp.Body.Close()
-		}
-
-		if err != nil {
-			// A blocked redirect still yields a non-nil resp alongside the
-			// error; any other failure (DNS, connection refused, timeout)
-			// does not, so resp must be checked before it's dereferenced.
-			if resp != nil && resp.StatusCode >= 301 && resp.StatusCode <= 308 { //status code 301 <---> 308
-				Updater.URL = resp.Header.Get("Location")
-			} else {
-				return err
+			if asset.Name == assetName {
+				release.Found = true
+				release.Tag = r.TagName
+				release.ZipURL = asset.BrowserDownloadURL
+				release.Filename = binaryName
+				return
 			}
+
 		}
-		// ---
-
-		req, err := http.NewRequest("POST", Updater.URL, bytes.NewBuffer(jsonByte))
-		req.Header.Set("Content-Type", "application/json")
-
-		client = &http.Client{Timeout: 15 * time.Second}
-		resp, err = client.Do(req)
-
-		if err != nil {
-			return err
-		}
-
-		if resp.StatusCode != http.StatusOK {
-			//fmt.Println(resp.StatusCode, Updater.URL, Updater.CMD)
-			err = fmt.Errorf("%d: %s (%s)", resp.StatusCode, http.StatusText(resp.StatusCode), Updater.URL)
-			return err
-		}
-
-		Updater.CMD = ""
-		defer resp.Body.Close()
-
-		body, _ := ioutil.ReadAll(resp.Body)
-
-		err = json.Unmarshal(body, &serverResponse)
-
-		if err != nil {
-			return err
-		}
-
-		Updater.Response = serverResponse
 
 	}
 

@@ -56,6 +56,23 @@ function copyTextToClipboard(text:string):void {
   legacyCopy() ? succeeded() : failed()
 }
 
+// checkForUpdates triggers a fresh GitHub release check on demand, rather
+// than waiting for the once-a-day scheduled one - the result (an alert
+// response) shows up as a toast; the persistent "Update available" banner
+// itself is populated from clientInfo on the next response.
+function checkForUpdates():void {
+  var server:Server = new Server("checkForUpdates")
+  server.request(new Object())
+}
+
+// installUpdate re-checks for and installs a newer release, then restarts
+// the process - triggered by the dashboard banner's "Install Now" button
+// or the Settings page action of the same name.
+function installUpdate():void {
+  var server:Server = new Server("installUpdate")
+  server.request(new Object())
+}
+
 // showToast replaces the old native alert() popups, which block the whole
 // page until dismissed and look jarring next to the rest of the UI. Errors
 // stay up longer than informational messages since they're more likely to
@@ -134,7 +151,7 @@ menuItems.push(new MainMenuItem("logout", "{{.mainMenu.item.logout}}", "nav-logo
 // Kategorien für die Einstellungen
 var settingsCategory = new Array()
 settingsCategory.push(new SettingsCategoryItem("{{.settings.category.general}}", "tuner,epgSource,api"))
-settingsCategory.push(new SettingsCategoryItem("{{.settings.category.files}}", "update,files.update,temp.path,cache.images,xepg.replace.missing.images"))
+settingsCategory.push(new SettingsCategoryItem("{{.settings.category.files}}", "update,xteveAutoUpdate,files.update,temp.path,cache.images,xepg.replace.missing.images"))
 settingsCategory.push(new SettingsCategoryItem("{{.settings.category.streaming}}", "buffer,udpxy,buffer.size.kb,buffer.timeout,user.agent,ffmpeg.path,ffmpeg.options,vlc.path,vlc.options"))
 settingsCategory.push(new SettingsCategoryItem("{{.settings.category.backup}}", "backup.path,backup.keep"))
 settingsCategory.push(new SettingsCategoryItem("{{.settings.category.authentication}}", "authentication.web,authentication.pms,authentication.m3u,authentication.xml,authentication.api"))

@@ -96,10 +96,22 @@ type SystemStruct struct {
 		User   string
 	}
 
-	Update struct {
-		Git  string
-		Name string
-	}
+	// ReleaseTag is the exact git tag this binary was built from (e.g.
+	// "v3.0.0-pre.2"), baked in at build time via -ldflags for official
+	// release builds. Empty for a plain `go build .` from source, which
+	// disables update checking entirely - there's no reliable version to
+	// compare against otherwise.
+	ReleaseTag string
+
+	// UpdateAvailable/UpdateVersion cache the result of the last update
+	// check (BinaryUpdate, or the manual "Check for Updates" WS command),
+	// so the dashboard can display it without triggering a GitHub API call
+	// on every single WS response - those fire continuously (e.g. the
+	// background log poll every 10s) and would exhaust GitHub's
+	// unauthenticated rate limit almost immediately. Guarded by
+	// updateStateLock.
+	UpdateAvailable bool
+	UpdateVersion   string
 
 	URLBase string
 	UDPxy   string
@@ -107,12 +119,6 @@ type SystemStruct struct {
 	WEB     struct {
 		Menu []string
 	}
-}
-
-// GitStruct : Updateinformationen von GitHub
-type GitStruct struct {
-	Filename string `json:"filename"`
-	Version  string `json:"version"`
 }
 
 // DataStruct : Alle Daten werden hier abgelegt. (Lineup, XMLTV)
@@ -298,7 +304,6 @@ type SettingsStruct struct {
 	TempPath                  string                `json:"temp.path"`
 	Tuner                     int                   `json:"tuner"`
 	Update                    []string              `json:"update"`
-	UpdateURL                 string                `json:"update.url,omitempty"`
 	UserAgent                 string                `json:"user.agent"`
 	UUID                      string                `json:"uuid"`
 	UDPxy                     string                `json:"udpxy"`

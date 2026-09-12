@@ -64,7 +64,8 @@
     "update": "Update",
     "craeteAccount": "Create Account",
     "resetLogs": "Reset Logs",
-    "uploadLogo": "Upload Logo"
+    "uploadLogo": "Upload Logo",
+    "checkForUpdates": "Check for Updates"
   },
   "filter":
   {
@@ -418,8 +419,8 @@
     },
     "xteveAutoUpdate":
     {
-      "title": "Automatic update of xTeVe",
-      "description": "If a new version of xTeVe is available, it will be automatically installed. The updates are downloaded from GitHub."
+      "title": "Automatically install updates",
+      "description": "Checks GitHub for a newer release once a day (and at startup) regardless of this setting. When on, a newer release is downloaded and installed automatically, restarting the server. When off (default), you'll just see an Update available notice and install it yourself with the button below."
     },
     "streamBuffering":
     {
@@ -559,6 +560,10 @@
   {
     "copied": "Address copied to clipboard",
     "copyFailed": "Couldn't copy automatically - please select and copy the address manually."
+  },
+  "update":
+  {
+    "available": "Update available:"
   },
   "login":
   {
