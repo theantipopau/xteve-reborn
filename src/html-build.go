@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 )
 
@@ -69,9 +70,22 @@ func createMapFromFiles(folder string) string {
 		checkErr(err)
 	}
 
+	// Sorted rather than Go's randomized map iteration order, so
+	// regenerating this file when nothing under html/ actually changed
+	// produces a byte-identical result instead of just the same entries in
+	// a different order every run. Otherwise every regeneration looks like
+	// a huge diff and real changes are impossible to spot by eye, and a
+	// CI check that catches this file going stale (see verify-embedded-
+	// web-assets.sh) would false-positive on every single run.
+	var keys = make([]string, 0, len(blankMap))
+	for key := range blankMap {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+
 	var content string
 
-	for key := range blankMap {
+	for _, key := range keys {
 		var newKey = filepath.ToSlash(key)
 		content += "  " + mapName + "[" + strconv.Quote(newKey) + "] = " + strconv.Quote(blankMap[key].(string)) + "\n"
 	}
