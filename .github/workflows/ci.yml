@@ -37,3 +37,11 @@ jobs:
 
       - name: go test -race
         run: go test -race ./...
+
+      - name: verify embedded web-asset bundle is up to date
+        run: |
+          go run ./tools/verify-embedded-assets
+          if ! git diff --exit-code src/webUI.go; then
+            echo "src/webUI.go is stale: rebuild it (run xteve with -dev, or go run ./tools/verify-embedded-assets) and commit the result."
+            exit 1
+          fi
