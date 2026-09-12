@@ -255,6 +255,34 @@ success — that API requires a secure context (HTTPS or localhost), but this ap
 over plain `http://<lan-ip>:<port>`, so the write silently failed there and the toast lied. Added a
 fallback (`copyTextToClipboard()`) that reports failure honestly instead.
 
+#### Follow-up concurrency audit
+The `Data.XEPG.Channels` race fix above was never really about XEPG specifically — it's about any
+state shared between the maintenance loop / WS handlers and the per-request response builder with
+no lock. Audited the rest of `Data`/`System` for the same pattern and found four more real
+instances: **`Data.Cache.StreamingURLS`** (written on every lineup/M3U rebuild, read on every
+single stream start — the hottest path in the app, had no lock at all; given its own dedicated
+`streamingURLsLock` rather than reusing `xepgLock` so a channel-surf never waits on a full EPG
+rebuild), **`System.Notification`** (the same alias-escapes-into-a-response bug as the original
+XEPG fix, on a different map), **`Data.XMLTV.Mapping`** (the exact same bug, three lines away from
+where it had already been fixed for `Data.XEPG.Channels`), and
+**`Data.Streams.*`/`Data.StreamPreviewUI.*`/`Data.Filter`/`Data.Playlist.M3U.Groups.*`** (all
+rebuilt wholesale with no lock, read by every WS response). Added regression tests for each,
+verified by temporarily removing a lock and confirming `go test -race` actually catches it before
+restoring the fix.
+
+#### A real self-updater, pointed at this fork's own releases
+Self-update was hardcoded off in this fork because upstream's version spoke a proprietary protocol
+to the original author's own update server — pointing that at this fork's repo was never an option
+since there's no server behind it here. Replaced it with a client for GitHub's public Releases
+API, matching the asset naming this fork's own release process produces
+(`xteve-reborn_<version>_<os>_<arch>.zip`). Checking for updates (at startup and once daily) is
+always on and read-only/safe; installing one is opt-in — by default you'll see an "Update
+available" banner and install it yourself with one click, rather than the binary silently
+replacing itself and restarting. A settings checkbox turns on fully automatic installs for anyone
+who wants that instead. Also fixed a real correctness bug found while building this: naive string
+comparison gets prerelease version ordering wrong (`"v3.0.0-pre.10" < "v3.0.0-pre.2"` lexically,
+even though pre.10 is newer) — added a small semver-ish comparator with full test coverage instead.
+
 ---
 
 ## Requirements
