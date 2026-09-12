@@ -75,19 +75,28 @@ func createMapFromFiles(folder string) string {
 	// produces a byte-identical result instead of just the same entries in
 	// a different order every run. Otherwise every regeneration looks like
 	// a huge diff and real changes are impossible to spot by eye, and a
-	// CI check that catches this file going stale (see verify-embedded-
-	// web-assets.sh) would false-positive on every single run.
+	// CI check that catches this file going stale (see
+	// tools/verify-embedded-assets) would false-positive on every single
+	// run.
+	//
+	// Sorting happens on the slash-normalized key, not the raw map key
+	// (which uses the host OS's path separator): '\\' and '/' compare
+	// differently, so sorting on raw keys would order nested paths
+	// differently on Windows vs Linux, making the output non-deterministic
+	// across platforms even though it's stable on any single one.
+	var newKeys = make(map[string]string, len(blankMap))
 	var keys = make([]string, 0, len(blankMap))
 	for key := range blankMap {
-		keys = append(keys, key)
+		var newKey = filepath.ToSlash(key)
+		newKeys[newKey] = key
+		keys = append(keys, newKey)
 	}
 	sort.Strings(keys)
 
 	var content string
 
-	for _, key := range keys {
-		var newKey = filepath.ToSlash(key)
-		content += "  " + mapName + "[" + strconv.Quote(newKey) + "] = " + strconv.Quote(blankMap[key].(string)) + "\n"
+	for _, newKey := range keys {
+		content += "  " + mapName + "[" + strconv.Quote(newKey) + "] = " + strconv.Quote(blankMap[newKeys[newKey]].(string)) + "\n"
 	}
 
 	return content

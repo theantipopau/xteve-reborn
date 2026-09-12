@@ -1,7 +1,7 @@
 * text=auto eol=lf
 
 *.go text eol=lf
-*.ts text eol=lf
+ts/*.ts text eol=lf
 *.html text eol=lf
 *.css text eol=lf
 *.md text eol=lf
@@ -14,3 +14,7 @@
 *.woff binary
 *.woff2 binary
 *.ttf binary
+
+# MPEG-TS video sample, not TypeScript source - the *.ts pattern above is
+# scoped to ts/ specifically so it doesn't corrupt this binary file.
+html/video/*.ts binary
