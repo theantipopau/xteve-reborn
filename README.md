@@ -334,11 +334,33 @@ even though pre.10 is newer) — added a small semver-ish comparator with full t
 ## Downloads
 Prebuilt binaries (Windows/Linux/macOS, amd64+arm64) are published on the
 [Releases page](https://github.com/theantipopau/xteve-reborn/releases). The current release is a
-prerelease (`3.0.0-pre`) — functionally complete and CI-tested, but new enough to not have real-world
-mileage yet. You can also build from source (below).
+prerelease (`3.0.0-pre.3`) — functionally complete and CI-tested, but new enough to not have
+real-world mileage yet. You can also build from source (below).
+
+#### Docker
+Official multi-arch images (linux/amd64, linux/arm64) are published to GitHub Container Registry
+on every tagged release:
+
+```
+docker pull ghcr.io/theantipopau/xteve-reborn:latest
+```
+
+```
+docker run -d --name xteve-reborn --network host \
+  -v ./config:/config \
+  ghcr.io/theantipopau/xteve-reborn:latest
+```
+
+A [`docker-compose.yml`](docker-compose.yml) example is in the repo. `--network host` (Linux only)
+gives Plex/Emby the best shot at auto-discovering the tuner over SSDP, since Docker's default
+bridge network doesn't forward the broadcast/multicast traffic that relies on; without it (e.g.
+Docker Desktop on Mac/Windows, or if you'd rather keep the container network-isolated), just map
+port 34400 and add the tuner in Plex/Emby manually with the address the setup wizard's last step
+or the dashboard shows you — see [`Dockerfile`](Dockerfile) for the full image build.
 
 #### Docker images from the original project (Linux 64 Bit)
-Thanks to @alturismo and @LeeD for creating the Docker Images.
+For the *upstream* xTeve project (not this fork), thanks to @alturismo and @LeeD for creating
+these Docker images.
 
 **Created by alturismo:**  
 [xTeVe](https://hub.docker.com/r/alturismo/xteve)  

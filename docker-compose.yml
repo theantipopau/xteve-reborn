@@ -1,0 +1,23 @@
+# Example compose file for xteve-reborn.
+#
+# SSDP auto-discovery (Plex/Emby finding the tuner on their own) relies on
+# UDP broadcast/multicast, which Docker's default bridge network does not
+# forward. `network_mode: host` (Linux only) gives the most reliable
+# auto-discovery. Without it - e.g. on Docker Desktop for Mac/Windows, or
+# if you'd rather keep the container network-isolated - everything still
+# works, you just add the tuner in Plex/Emby manually with the address
+# shown on the setup wizard's last step or the dashboard, instead of
+# relying on auto-discovery.
+
+services:
+  xteve-reborn:
+    image: ghcr.io/theantipopau/xteve-reborn:latest
+    container_name: xteve-reborn
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./config:/config
+    # If you don't want host networking, comment out network_mode above
+    # and uncomment the port mapping below instead:
+    # ports:
+    #   - "34400:34400"
