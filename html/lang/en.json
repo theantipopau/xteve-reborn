@@ -269,7 +269,7 @@
     },
     "m3uGroupTitle":
     {
-      "title": "Group Title (xteve.m3u)",
+      "title": "Group Title (xteve-reborn.m3u)",
       "placeholder": "",
       "description": ""
     },
@@ -307,7 +307,7 @@
     {
       "title": "",
       "placeholder": "Stream URL (optional)",
-      "description": "If the main stream fails to connect, xTeVe tries these URLs in order before giving up. Leave blank if not needed."
+      "description": "If the main stream fails to connect, xTeVe Reborn tries these URLs in order before giving up. Leave blank if not needed."
     }
   },
   "users":
@@ -376,7 +376,8 @@
     "category":
     {
       "general": "General",
-      "files": "Files",
+      "files": "Playlists & Guide",
+      "appUpdates": "App Updates",
       "streaming": "Streaming",
       "backup": "Backup",
       "authentication": "Authentication"
@@ -390,7 +391,7 @@
     "api":
     {
       "title": "API Interface",
-      "description": "Via API interface it is possible to send commands to xTeVe. API documentation is <a href='https://github.com/xteve-project/xTeVe-Documentation/blob/master/en/configuration.md#api'>here</a>"
+      "description": "Via API interface it is possible to send commands to xTeVe Reborn. API documentation is <a href='https://github.com/xteve-project/xTeVe-Documentation/blob/master/en/configuration.md#api'>here</a>"
     },
     "epgSource":
     {
@@ -400,7 +401,7 @@
     "tuner":
     {
       "title": "Number of Tuners",
-      "description": "Number of parallel connections that can be established to the provider.<br>Available for: Plex, Emby (HDHR), M3U (with active buffer).<br>After a change, xTeVe must be delete in the Plex / Emby DVR settings and set up again."
+      "description": "Number of parallel connections that can be established to the provider.<br>Available for: Plex, Emby (HDHR), M3U (with active buffer).<br>After changing it, remove xTeVe Reborn from Plex / Emby / Jellyfin Live TV and add it again."
     },
     "filesUpdate":
     {
@@ -417,6 +418,17 @@
       "title": "Replace missing program images",
       "description": "If the poster in the XMLTV program is missing, the channel logo will be used."
     },
+    "sourceCheckInterval":
+    {
+      "title": "Check sources for changes every (minutes)",
+      "description": "Between the scheduled updates above, each playlist and XMLTV source is checked this often, and the guide is rebuilt only if a source's content actually changed. A check that finds nothing new is one small request per source (servers that support ETag / Last-Modified answer without resending the file). Set to 0 to turn off. Minimum 5."
+    },
+    "unsaved":
+    {
+      "message": "You have unsaved changes",
+      "discard": "Discard",
+      "confirmLeave": "You have unsaved settings. Discard them?"
+    },
     "xteveAutoUpdate":
     {
       "title": "Automatically install updates",
@@ -425,9 +437,9 @@
     "streamBuffering":
     {
       "title": "Stream Buffer",
-      "description": "Functions of the buffer:<br>- The stream is passed from xTeVe, FFmpeg or VLC to Plex, Emby or M3U Player<br>- Small jerking of the streams can be compensated<br>- HLS / M3U8 support<br>- RTP / RTPS support (only FFmpeg or VLC)<br>- Re-streaming<br>- Separate tuner limit for each playlist",
+      "description": "Functions of the buffer:<br>- The stream is passed from xTeVe Reborn, FFmpeg or VLC to Plex, Emby or M3U Player<br>- Small jerking of the streams can be compensated<br>- HLS / M3U8 support<br>- RTP / RTPS support (only FFmpeg or VLC)<br>- Re-streaming<br>- Separate tuner limit for each playlist",
       "info_false": "No Buffer (Client connects to the streaming server)",
-      "info_xteve": "xTeVe connects to the streaming server",
+      "info_xteve": "xTeVe Reborn connects to the streaming server",
       "info_ffmpeg": "FFmpeg connects to the streaming server",
       "info_vlc": "VLC connects to the streaming server"
 
@@ -435,7 +447,7 @@
     "udpxy":
     {
       "title": "UDPxy address",
-      "description": "The address of your UDPxy server. If set, and the channel URLs in the m3u is multicast, xTeVe will rewrite it so that it is accessed via the UDPxy service.",
+      "description": "The address of your UDPxy server. If set, and the channel URLs in the m3u is multicast, xTeVe Reborn will rewrite it so that it is accessed via the UDPxy service.",
       "placeholder": "host:port"
     },
     "ffmpegPath":
@@ -470,20 +482,20 @@
     "bufferTimeout":
     {
       "title": "Timeout for new client connections",
-      "description": "The xTeVe buffer waits until new client connections are established. Helpful for fast channel switching. Value in milliseconds.",
+      "description": "The xTeVe Reborn buffer waits until new client connections are established. Helpful for fast channel switching. Value in milliseconds.",
       "placeholder": "100"
     },
     "userAgent":
     {
       "title": "User Agent",
-      "description": "User Agent for HTTP requests. For every HTTP connection, this value is used for the user agent. Should only be changed if xTeVe is blocked.",
-      "placeholder": "xTeVe"
+      "description": "User Agent for HTTP requests. For every HTTP connection, this value is used for the user agent. Should only be changed if xTeVe Reborn is blocked.",
+      "placeholder": "xTeVe-Reborn"
     },
     "backupPath":
     {
       "title": "Location for automatic backups",
       "placeholder": "/mnt/data/backup/xteve/",
-      "description": "Before any update of the provider data by the schedule, xTeVe creates a backup. The path for the automatic backups can be changed. xTeVe requires write permission for this folder."
+      "description": "Before any update of the provider data by the schedule, xTeVe Reborn creates a backup. The path for the automatic backups can be changed. xTeVe Reborn requires write permission for this folder."
     },
     "tempPath":
     {
@@ -504,7 +516,7 @@
     "authenticationPMS":
     {
       "title": "PMS Authentication",
-      "description": "Plex requests are only possible with authentication. <br><b>Warning!!!</b> After activating this function xTeVe must be delete in the PMS DVR settings and set up again."
+      "description": "Plex requests are only possible with authentication. <br><b>Note:</b> after turning this on, remove xTeVe Reborn from Plex Live TV and add it again."
     },
     "authenticationM3U":
     {
@@ -532,7 +544,7 @@
     "tuner":
     {
       "title": "Number of tuners",
-      "description": "Number of parallel connections that can be established to the provider.<br>Available for: Plex, Emby (HDHR), M3U (with active buffer).<br>After a change, xTeVe must be delete in the Plex / Emby DVR settings and set up again."
+      "description": "Number of parallel connections that can be established to the provider.<br>Available for: Plex, Emby (HDHR), M3U (with active buffer).<br>After changing it, remove xTeVe Reborn from Plex / Emby / Jellyfin Live TV and add it again."
     },
     "m3u":
     {
@@ -545,6 +557,13 @@
       "title": "XMLTV File",
       "placeholder": "File path or URL of the XMLTV",
       "description": "Local or remote XMLTV file"
+    },
+    "webAuth":
+    {
+      "title": "Protect this web interface",
+      "yes": "Yes, require a login (recommended)",
+      "no": "No, leave it open",
+      "description": "Without a login, anyone on your network can open this page and change your setup. The Log page also shows your provider's stream URLs, which usually contain your account username and password.<br><br>If you choose Yes, you'll create a username and password as soon as setup finishes."
     },
     "finish":
     {

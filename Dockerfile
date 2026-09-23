@@ -30,14 +30,23 @@ RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} \
 
 FROM alpine:3.20
 
-RUN apk add --no-cache ca-certificates ffmpeg tzdata
+RUN apk add --no-cache ca-certificates ffmpeg su-exec tzdata
 
 COPY --from=build /out/xteve-reborn /usr/local/bin/xteve-reborn
+COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
+
+# The entrypoint starts as root only long enough to chown /config, then
+# drops to PUID:PGID (default 1000:1000). XTEVE_REBORN_DOCKER tells the app
+# it's in a container, where updates come from pulling a new image rather
+# than the self-updater rewriting the binary.
+ENV PUID=1000 \
+    PGID=1000 \
+    XTEVE_REBORN_DOCKER=1
 
 # All config, playlists-by-path, and generated data live under /config -
 # mount a volume there so it survives container recreation.
 VOLUME ["/config"]
 EXPOSE 34400
 
-ENTRYPOINT ["/usr/local/bin/xteve-reborn"]
+ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["-config", "/config"]

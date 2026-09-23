@@ -10,36 +10,110 @@ import (
 	"time"
 )
 
+// logLock guards WebScreenLog. Log lines are written from every goroutine
+// in the app (each stream start logs from its own HTTP handler) and read by
+// every WS response, so all access goes through appendWebLog/resetWebLog/
+// snapshotWebLog. The previous code declared a fresh mutex inside each log
+// function, which locks nothing since no two calls ever share it.
+var logLock sync.Mutex
+
+// alignLogMessage pads "Key:value" so values line up in a column, the way
+// the console and Log page have always displayed them. Messages without a
+// colon are returned unchanged.
+func alignLogMessage(str string) string {
+
+	var msg = strings.SplitN(str, ":", 2)
+	if len(msg) != 2 {
+		return str
+	}
+
+	var padding = 23 - len(msg[0])
+	if padding < 0 {
+		padding = 0
+	}
+
+	return msg[0] + ":" + strings.Repeat(" ", padding) + msg[1]
+}
+
+// appendWebLog adds one line to the in-memory log shown on the Log page and
+// trims it back to Settings.LogEntriesRAM.
+func appendWebLog(logMsg string) {
+
+	logLock.Lock()
+	defer logLock.Unlock()
+
+	WebScreenLog.Log = append(WebScreenLog.Log, time.Now().Format("2006-01-02 15:04:05")+" "+logMsg)
+	trimWebLog()
+}
+
+// trimWebLog keeps only the newest Settings.LogEntriesRAM lines and
+// recounts errors/warnings from what's left. Caller must hold logLock.
+func trimWebLog() {
+
+	var limit = Settings.LogEntriesRAM
+
+	if limit > 0 && len(WebScreenLog.Log) > limit {
+		// Copied into a fresh slice so the dropped lines' backing array can
+		// actually be freed rather than pinned by a subslice.
+		WebScreenLog.Log = append([]string(nil), WebScreenLog.Log[len(WebScreenLog.Log)-limit:]...)
+	}
+
+	WebScreenLog.Warnings = 0
+	WebScreenLog.Errors = 0
+
+	for _, line := range WebScreenLog.Log {
+
+		if strings.Contains(line, "WARNING") {
+			WebScreenLog.Warnings++
+		}
+
+		if strings.Contains(line, "ERROR") {
+			WebScreenLog.Errors++
+		}
+
+	}
+
+}
+
+// resetWebLog clears the in-memory log (Log page "Reset" button, restore).
+func resetWebLog() {
+
+	logLock.Lock()
+	defer logLock.Unlock()
+
+	WebScreenLog.Log = make([]string, 0)
+	WebScreenLog.Errors = 0
+	WebScreenLog.Warnings = 0
+}
+
+// snapshotWebLog returns a copy of the log for a WS response, which is
+// JSON-marshaled after the lock is released.
+func snapshotWebLog() (snapshot WebScreenLogStruct) {
+
+	logLock.Lock()
+	defer logLock.Unlock()
+
+	snapshot.Errors = WebScreenLog.Errors
+	snapshot.Warnings = WebScreenLog.Warnings
+	snapshot.Log = append([]string(nil), WebScreenLog.Log...)
+
+	return
+}
+
 func showInfo(str string) {
 
 	if System.Flag.Info == true {
 		return
 	}
 
-	var max = 23
-	var msg = strings.SplitN(str, ":", 2)
-	var length = len(msg[0])
-	var space string
-
-	if len(msg) == 2 {
-
-		for i := length; i < max; i++ {
-			space = space + " "
-		}
-
-		msg[0] = msg[0] + ":" + space
-
-		var logMsg = fmt.Sprintf("[%s] %s%s", System.Name, msg[0], msg[1])
-
-		printLogOnScreen(logMsg, "info")
-
-		logMsg = strings.Replace(logMsg, " ", "&nbsp;", -1)
-		WebScreenLog.Log = append(WebScreenLog.Log, time.Now().Format("2006-01-02 15:04:05")+" "+logMsg)
-		logCleanUp()
-
+	if strings.Contains(str, ":") == false {
+		return
 	}
 
-	return
+	var logMsg = fmt.Sprintf("[%s] %s", System.Name, alignLogMessage(str))
+
+	printLogOnScreen(logMsg, "info")
+	appendWebLog(logMsg)
 }
 
 func showDebug(str string, level int) {
@@ -48,98 +122,50 @@ func showDebug(str string, level int) {
 		return
 	}
 
-	var max = 23
-	var msg = strings.SplitN(str, ":", 2)
-	var length = len(msg[0])
-	var space string
-	var mutex = sync.RWMutex{}
-
-	if len(msg) == 2 {
-
-		for i := length; i < max; i++ {
-			space = space + " "
-		}
-		msg[0] = msg[0] + ":" + space
-
-		var logMsg = fmt.Sprintf("[DEBUG] %s%s", msg[0], msg[1])
-
-		printLogOnScreen(logMsg, "debug")
-
-		mutex.Lock()
-		logMsg = strings.Replace(logMsg, " ", "&nbsp;", -1)
-		WebScreenLog.Log = append(WebScreenLog.Log, time.Now().Format("2006-01-02 15:04:05")+" "+logMsg)
-		logCleanUp()
-		mutex.Unlock()
-
+	if strings.Contains(str, ":") == false {
+		return
 	}
 
-	return
+	var logMsg = fmt.Sprintf("[DEBUG] %s", alignLogMessage(str))
+
+	printLogOnScreen(logMsg, "debug")
+	appendWebLog(logMsg)
 }
 
 func showHighlight(str string) {
 
-	var max = 23
-	var msg = strings.SplitN(str, ":", 2)
-	var length = len(msg[0])
-	var space string
+	var logMsg = fmt.Sprintf("[%s] %s", System.Name, alignLogMessage(str))
+
+	printLogOnScreen(logMsg, "highlight")
+	appendWebLog(logMsg)
+
+	var message = str
+	if msg := strings.SplitN(str, ":", 2); len(msg) == 2 {
+		message = msg[1]
+	}
 
 	var notification Notification
 	notification.Type = "info"
-
-	if len(msg) == 2 {
-
-		for i := length; i < max; i++ {
-			space = space + " "
-		}
-
-		msg[0] = msg[0] + ":" + space
-
-		var logMsg = fmt.Sprintf("[%s] %s%s", System.Name, msg[0], msg[1])
-
-		printLogOnScreen(logMsg, "highlight")
-
-	}
-
-	notification.Type = "info"
-	notification.Message = msg[1]
+	notification.Message = message
 
 	addNotification(notification)
-
-	return
 }
 
 func showWarning(errCode int) {
 
-	var errMsg = getErrMsg(errCode)
-	var logMsg = fmt.Sprintf("[%s] [WARNING] %s", System.Name, errMsg)
-	var mutex = sync.RWMutex{}
+	var logMsg = fmt.Sprintf("[%s] [WARNING] %s", System.Name, getErrMsg(errCode))
 
 	printLogOnScreen(logMsg, "warning")
-
-	mutex.Lock()
-	WebScreenLog.Log = append(WebScreenLog.Log, time.Now().Format("2006-01-02 15:04:05")+" "+logMsg)
-	WebScreenLog.Warnings++
-	mutex.Unlock()
-
-	return
+	appendWebLog(logMsg)
 }
 
 // ShowError : Zeigt die Fehlermeldungen in der Konsole
 func ShowError(err error, errCode int) {
 
-	var mutex = sync.RWMutex{}
-
-	var errMsg = getErrMsg(errCode)
-	var logMsg = fmt.Sprintf("[%s] [ERROR] %s (%s) - EC: %d", System.Name, err, errMsg, errCode)
+	var logMsg = fmt.Sprintf("[%s] [ERROR] %s (%s) - EC: %d", System.Name, err, getErrMsg(errCode), errCode)
 
 	printLogOnScreen(logMsg, "error")
-
-	mutex.Lock()
-	WebScreenLog.Log = append(WebScreenLog.Log, time.Now().Format("2006-01-02 15:04:05")+" "+logMsg)
-	WebScreenLog.Errors++
-	mutex.Unlock()
-
-	return
+	appendWebLog(logMsg)
 }
 
 func printLogOnScreen(logMsg string, logType string) {
@@ -177,41 +203,6 @@ func printLogOnScreen(logMsg string, logType string) {
 
 	}
 
-}
-
-func logCleanUp() {
-
-	var logEntriesRAM = Settings.LogEntriesRAM
-	var logs = WebScreenLog.Log
-
-	WebScreenLog.Warnings = 0
-	WebScreenLog.Errors = 0
-
-	if len(logs) > logEntriesRAM {
-
-		var tmp = make([]string, 0)
-		for i := len(logs) - logEntriesRAM; i < logEntriesRAM; i++ {
-			tmp = append(tmp, logs[i])
-		}
-
-		logs = tmp
-	}
-
-	for _, log := range logs {
-
-		if strings.Contains(log, "WARNING") {
-			WebScreenLog.Warnings++
-		}
-
-		if strings.Contains(log, "ERROR") {
-			WebScreenLog.Errors++
-		}
-
-	}
-
-	WebScreenLog.Log = logs
-
-	return
 }
 
 // Fehlercodes
@@ -314,21 +305,21 @@ func getErrMsg(errCode int) (errMsg string) {
 	case 2010:
 		errMsg = fmt.Sprintf("No valid streaming URL")
 	case 2020:
-		errMsg = fmt.Sprintf("FFmpeg binary was not found. Check the FFmpeg binary path in the xTeVe settings.")
+		errMsg = fmt.Sprintf("FFmpeg binary was not found. Check the FFmpeg binary path in Settings.")
 	case 2021:
-		errMsg = "VLC binary was not found. Check the VLC path binary in the xTeVe settings."
+		errMsg = "VLC binary was not found. Check the VLC binary path in Settings."
 
 	case 2099:
 		errMsg = "Updates have been disabled by the developer"
 
 	// Tuner
 	case 2105:
-		errMsg = fmt.Sprintf("The number of tuners has changed, you have to delete %s in Plex / Emby HDHR and set it up again.", System.Name)
+		errMsg = fmt.Sprintf("The number of tuners has changed. Remove %s from Plex / Emby / Jellyfin Live TV and add it again for the change to take effect.", System.Name)
 	case 2106:
 		errMsg = "This function is only available with XEPG as EPG source"
 
 	case 2110:
-		errMsg = fmt.Sprintf("Don't run this as Root!")
+		errMsg = "Running as root is not recommended."
 
 	case 2300:
 		errMsg = fmt.Sprintf("No channel logo found in the XMLTV or M3U file.")
@@ -385,7 +376,7 @@ func getErrMsg(errCode int) (errMsg string) {
 	case 6003:
 		errMsg = fmt.Sprintf("Update server not available")
 	case 6004:
-		errMsg = fmt.Sprintf("xTeVe update available")
+		errMsg = "Update available"
 
 	default:
 		errMsg = fmt.Sprintf("Unknown error / warning (%d)", errCode)

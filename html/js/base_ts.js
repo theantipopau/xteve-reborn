@@ -63,6 +63,13 @@ function installUpdate() {
     var server = new Server("installUpdate");
     server.request(new Object());
 }
+// checkSources checks every playlist/XMLTV source for changes right now
+// instead of waiting for the next periodic check. Runs in the background
+// on the server; the result shows in the Log and the dashboard's times.
+function checkSources() {
+    var server = new Server("checkSources");
+    server.request(new Object());
+}
 // showToast replaces the old native alert() popups, which block the whole
 // page until dismissed and look jarring next to the rest of the UI. Errors
 // stay up longer than informational messages since they're more likely to
@@ -125,7 +132,8 @@ menuItems.push(new MainMenuItem("logout", "{{.mainMenu.item.logout}}", "nav-logo
 // Kategorien für die Einstellungen
 var settingsCategory = new Array();
 settingsCategory.push(new SettingsCategoryItem("{{.settings.category.general}}", "tuner,epgSource,api"));
-settingsCategory.push(new SettingsCategoryItem("{{.settings.category.files}}", "update,xteveAutoUpdate,files.update,temp.path,cache.images,xepg.replace.missing.images"));
+settingsCategory.push(new SettingsCategoryItem("{{.settings.category.files}}", "update,source.check.interval,files.update,temp.path,cache.images,xepg.replace.missing.images"));
+settingsCategory.push(new SettingsCategoryItem("{{.settings.category.appUpdates}}", "xteveAutoUpdate"));
 settingsCategory.push(new SettingsCategoryItem("{{.settings.category.streaming}}", "buffer,udpxy,buffer.size.kb,buffer.timeout,user.agent,ffmpeg.path,ffmpeg.options,vlc.path,vlc.options"));
 settingsCategory.push(new SettingsCategoryItem("{{.settings.category.backup}}", "backup.path,backup.keep"));
 settingsCategory.push(new SettingsCategoryItem("{{.settings.category.authentication}}", "authentication.web,authentication.pms,authentication.m3u,authentication.xml,authentication.api"));

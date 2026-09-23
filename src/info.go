@@ -68,7 +68,7 @@ func ShowSystemInfo() {
 	println("---")
 
 	fmt.Println("Settings [General]")
-	fmt.Println(fmt.Sprintf("xTeVe Update:        %t", Settings.XteveAutoUpdate))
+	fmt.Println(fmt.Sprintf("Auto-install updates:%t", Settings.XteveAutoUpdate))
 	fmt.Println(fmt.Sprintf("UUID:                %s", Settings.UUID))
 	fmt.Println(fmt.Sprintf("Tuner (Plex / Emby): %d", Settings.Tuner))
 	fmt.Println(fmt.Sprintf("EPG Source:          %s", Settings.EpgSource))

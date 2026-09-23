@@ -255,7 +255,7 @@ func StartSystem(updateProviderFiles bool) (err error) {
 
 	setDeviceID()
 
-	if System.ScanInProgress == 1 {
+	if scanInProgress() {
 		return
 	}
 

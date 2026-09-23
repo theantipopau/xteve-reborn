@@ -935,6 +935,14 @@ function createLayout() {
 }
 
 function openThisMenu(element) {
+
+  if (SETTINGS_DIRTY) {
+    if (!confirm("{{.settings.unsaved.confirmLeave}}")) {
+      return
+    }
+    clearSettingsDirty()
+  }
+
   var id = element.id
   var content:ShowContent = new ShowContent(id)
   content.show()
@@ -1297,7 +1305,7 @@ function openPopUp(dataType, element) {
      
       // Type
       var dbKey:string = "type"
-      var text:string[] = ["M3U: " + "{{.filter.type.groupTitle}}", "xTeVe: " + "{{.filter.type.customFilter}}"]
+      var text:string[] = ["M3U: " + "{{.filter.type.groupTitle}}", "xTeVe Reborn: " + "{{.filter.type.customFilter}}"]
       var values:string[] = ["javascript: openPopUp('group-title')", "javascript: openPopUp('custom-filter')"]
       var select = content.createSelect(text, values, "javascript: openPopUp('group-title')", dbKey)
       select.setAttribute("id", id)

@@ -23,59 +23,70 @@ func maintenance() {
 
 		var t = time.Now()
 
-		// Aktualisierung der Playlist und XMLTV Dateien
-		if System.ScanInProgress == 0 {
-
-			for _, schedule := range Settings.Update {
-
-				if schedule == t.Format("1504") {
-
-					showInfo("Update:" + schedule)
-
-					// Backup erstellen
-					err := xTeVeAutoBackup()
-					if err != nil {
-						ShowError(err, 000)
-					}
-
-					// Playlist und XMLTV Dateien aktualisieren
-					getProviderData("m3u", "")
-					getProviderData("hdhr", "")
-
-					if Settings.EpgSource == "XEPG" {
-						getProviderData("xmltv", "")
-					}
-
-					// Datenbank für DVR erstellen
-					err = buildDatabaseDVR()
-					if err != nil {
-						ShowError(err, 000)
-					}
-
-					if Settings.CacheImages == false && System.ImageCachingInProgress == 0 {
-						removeChildItems(System.Folder.ImagesCache)
-					}
-
-					// XEPG Dateien erstellen
-					xepgLock.Lock()
-					Data.Cache.XMLTV = make(map[string]XMLTV)
-					xepgLock.Unlock()
-					buildXEPG(false)
-
-				}
-
+		// Scheduled full refresh of every playlist/XMLTV (Settings.Update).
+		// Run in its own goroutine so a slow download can't stall this loop
+		// past the next scheduled minute.
+		for _, schedule := range Settings.Update {
+			if schedule == t.Format("1504") {
+				go scheduledRefresh(schedule)
 			}
+		}
 
-			// Update xTeVe (Binary)
-			if System.TimeForAutoUpdate == t.Format("1504") {
-				BinaryUpdate()
-			}
+		// Between scheduled refreshes, check each source for changes and
+		// refresh just the ones that changed.
+		if scanInProgress() == false && sourceCheckDue(t) {
+			go runSourceCheck()
+		}
 
+		// Update xTeVe (Binary)
+		if System.TimeForAutoUpdate == t.Format("1504") {
+			go BinaryUpdate()
 		}
 
 		time.Sleep(60 * time.Second)
 
 	}
+}
+
+func scheduledRefresh(schedule string) {
+
+	refreshLock.Lock()
+	defer refreshLock.Unlock()
+
+	waitForScan()
+
+	showInfo("Update:" + schedule)
+
+	// Backup erstellen
+	err := xTeVeAutoBackup()
+	if err != nil {
+		ShowError(err, 000)
+	}
+
+	// Playlist und XMLTV Dateien aktualisieren
+	getProviderData("m3u", "")
+	getProviderData("hdhr", "")
+
+	if Settings.EpgSource == "XEPG" {
+		getProviderData("xmltv", "")
+	}
+
+	// Datenbank für DVR erstellen
+	err = buildDatabaseDVR()
+	if err != nil {
+		ShowError(err, 000)
+	}
+
+	if Settings.CacheImages == false && imageCachingInProgress() == false {
+		removeChildItems(System.Folder.ImagesCache)
+	}
+
+	// XEPG Dateien erstellen
+	xepgLock.Lock()
+	Data.Cache.XMLTV = make(map[string]XMLTV)
+	xepgLock.Unlock()
+	buildXEPG(false)
+
 }
 
 func randomTime(min, max int) int {

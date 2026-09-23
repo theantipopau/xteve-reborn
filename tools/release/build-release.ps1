@@ -87,7 +87,18 @@ finally {
   Pop-Location
 }
 
+# sha256sum-format checksums ("<hex>  <file>"), which the self-updater
+# requires before it will install anything. Written as UTF-8 without a BOM
+# and with LF line endings: a BOM would glue itself onto the first hash.
+$lines = Get-ChildItem -Path $OutDir -Filter "*.zip" | Sort-Object Name | ForEach-Object {
+  $hash = (Get-FileHash -Algorithm SHA256 -Path $_.FullName).Hash.ToLower()
+  "$hash  $($_.Name)"
+}
+$checksumsPath = Join-Path $OutDir "xteve-reborn_${Version}_checksums.txt"
+[System.IO.File]::WriteAllText($checksumsPath, (($lines -join "`n") + "`n"), (New-Object System.Text.UTF8Encoding $false))
+Write-Host "  -> $checksumsPath"
+
 Write-Host ""
-Write-Host "Done. Zips are in $OutDir"
+Write-Host "Done. Release files are in $OutDir"
 Write-Host "Next: git tag -a $Tag -m `"xteve-reborn $Tag`" && git push origin $Tag"
-Write-Host "Then: gh release create $Tag $OutDir\*.zip --title `"xteve-reborn $Tag`" --notes-file <notes.md> --prerelease"
+Write-Host "Then: gh release create $Tag $OutDir\*.zip $checksumsPath --title `"xteve-reborn $Tag`" --notes-file <notes.md>"

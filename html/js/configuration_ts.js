@@ -40,17 +40,22 @@ var WizardItem = /** @class */ (function (_super) {
         doc.appendChild(headline);
         switch (key) {
             case "tuner":
-                var text = new Array();
-                var values = new Array();
-                for (var i = 1; i <= 100; i++) {
-                    text.push(i);
-                    values.push(i);
-                }
-                var select = content.createSelect(text, values, "1", key);
+                var input = content.createInput("number", key, "1");
+                input.setAttribute("min", "1");
+                input.setAttribute("max", "100");
+                input.setAttribute("class", "wizard");
+                input.id = key;
+                doc.appendChild(input);
+                description = "{{.wizard.tuner.description}}";
+                break;
+            case "webAuth":
+                var text = ["{{.wizard.webAuth.yes}}", "{{.wizard.webAuth.no}}"];
+                var values = ["true", "false"];
+                var select = content.createSelect(text, values, "true", key);
                 select.setAttribute("class", "wizard");
                 select.id = key;
                 doc.appendChild(select);
-                description = "{{.wizard.tuner.description}}";
+                description = "{{.wizard.webAuth.description}}";
                 break;
             case "epgSource":
                 var text = ["PMS", "XEPG"];
@@ -145,6 +150,15 @@ function saveWizard() {
                 break;
             case "INPUT":
                 switch (config[i].type) {
+                    case "number":
+                        name = config[i].name;
+                        value = parseInt(config[i].value);
+                        if (isNaN(value) || value < 1 || value > 100) {
+                            showToast(name.toUpperCase() + ": " + "{{.alert.missingInput}}", "error");
+                            return;
+                        }
+                        wizard[name] = value;
+                        break;
                     case "text":
                         name = config[i].name;
                         value = config[i].value;
@@ -181,4 +195,5 @@ configurationWizard.push(new WizardItem("tuner", "{{.wizard.tuner.title}}"));
 configurationWizard.push(new WizardItem("epgSource", "{{.wizard.epgSource.title}}"));
 configurationWizard.push(new WizardItem("m3u", "{{.wizard.m3u.title}}"));
 configurationWizard.push(new WizardItem("xmltv", "{{.wizard.xmltv.title}}"));
+configurationWizard.push(new WizardItem("webAuth", "{{.wizard.webAuth.title}}"));
 configurationWizard.push(new WizardItem("finish", "{{.wizard.finish.title}}"));

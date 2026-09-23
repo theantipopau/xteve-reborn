@@ -35,16 +35,21 @@ type releaseInfo struct {
 	Assets  []releaseAsset `json:"assets"`
 }
 
-// Release describes an update found on GitHub: the release tag and the
-// download URL for the asset matching the running binary's OS/architecture.
+// Release describes an update found on GitHub: the release tag, the
+// download URL for the asset matching the running binary's OS/architecture,
+// and the release's SHA-256 checksums file used to verify that download.
 type Release struct {
-	Found    bool
-	Tag      string
-	ZipURL   string
-	Filename string
+	Found        bool
+	Tag          string
+	ZipURL       string
+	ChecksumsURL string
+	Filename     string
 }
 
 var httpClient = &http.Client{Timeout: 10 * time.Second}
+
+// apiBaseURL is a variable only so tests can point it at a fake server.
+var apiBaseURL = "https://api.github.com"
 
 // GetLatestRelease queries GitHub's Releases API for the newest release of
 // owner/repo and looks for the asset matching the running binary's
@@ -54,7 +59,7 @@ var httpClient = &http.Client{Timeout: 10 * time.Second}
 // the first non-draft entry is the one being checked.
 func GetLatestRelease(owner, repo, binaryName string) (release Release, err error) {
 
-	var url = fmt.Sprintf("https://api.github.com/repos/%s/%s/releases", owner, repo)
+	var url = fmt.Sprintf("%s/repos/%s/%s/releases", apiBaseURL, owner, repo)
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
@@ -85,18 +90,30 @@ func GetLatestRelease(owner, repo, binaryName string) (release Release, err erro
 			continue
 		}
 
-		var assetName = fmt.Sprintf("%s_%s_%s_%s.zip", binaryName, strings.TrimPrefix(r.TagName, "v"), runtime.GOOS, runtime.GOARCH)
+		var version = strings.TrimPrefix(r.TagName, "v")
+		var assetName = fmt.Sprintf("%s_%s_%s_%s.zip", binaryName, version, runtime.GOOS, runtime.GOARCH)
+		var checksumsName = fmt.Sprintf("%s_%s_checksums.txt", binaryName, version)
+
+		var zipURL, checksumsURL string
 
 		for _, asset := range r.Assets {
 
-			if asset.Name == assetName {
-				release.Found = true
-				release.Tag = r.TagName
-				release.ZipURL = asset.BrowserDownloadURL
-				release.Filename = binaryName
-				return
+			switch asset.Name {
+			case assetName:
+				zipURL = asset.BrowserDownloadURL
+			case checksumsName:
+				checksumsURL = asset.BrowserDownloadURL
 			}
 
+		}
+
+		if len(zipURL) > 0 {
+			release.Found = true
+			release.Tag = r.TagName
+			release.ZipURL = zipURL
+			release.ChecksumsURL = checksumsURL
+			release.Filename = binaryName
+			return
 		}
 
 	}

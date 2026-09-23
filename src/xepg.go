@@ -41,166 +41,107 @@ func checkXMLCompatibility(id string, body []byte) (err error) {
 // XEPG Daten erstellen
 func buildXEPG(background bool) {
 
-	if System.ScanInProgress == 1 {
+	if tryStartScan() == false {
 		return
 	}
 
-	System.ScanInProgress = 1
-
-	var err error
-
-	Data.Cache.Images, err = imgcache.New(System.Folder.ImagesCache, fmt.Sprintf("%s://%s/images/", System.ServerProtocol.WEB, System.Domain), Settings.CacheImages)
+	images, err := imgcache.New(System.Folder.ImagesCache, fmt.Sprintf("%s://%s/images/", System.ServerProtocol.WEB, System.Domain), Settings.CacheImages)
 	if err != nil {
 		ShowError(err, 0)
 	}
 
-	if Settings.EpgSource == "XEPG" {
+	xepgLock.Lock()
+	Data.Cache.Images = images
+	xepgLock.Unlock()
 
-		switch background {
+	if Settings.EpgSource != "XEPG" {
+		getLineup()
+		endScan()
+		markRefreshed()
+		return
+	}
 
-		case true:
+	var finish = func() {
+		createXMLTVFile()
+		createM3UFile()
 
-			go func() {
+		showInfo("XEPG:Ready to use")
+		endScan()
 
-				createXEPGMapping()
-				createXEPGDatabase()
-				mapping()
-				cleanupXEPG()
-				createXMLTVFile()
-				createM3UFile()
+		startImageCaching(images)
+		markRefreshed()
+		runtime.GC()
+	}
 
-				showInfo("XEPG:" + fmt.Sprintf("Ready to use"))
+	if background {
 
-				if Settings.CacheImages == true && System.ImageCachingInProgress == 0 {
-
-					go func() {
-
-						System.ImageCachingInProgress = 1
-						showInfo(fmt.Sprintf("Image Caching:Images are cached (%d)", len(Data.Cache.Images.Queue)))
-
-						Data.Cache.Images.Image.Caching()
-						Data.Cache.Images.Image.Remove()
-						showInfo("Image Caching:Done")
-
-						createXMLTVFile()
-						createM3UFile()
-
-						System.ImageCachingInProgress = 0
-
-					}()
-
-				}
-
-				System.ScanInProgress = 0
-
-				// Cache löschen
-				/*
-					Data.Cache.XMLTV = make(map[string]XMLTV)
-					Data.Cache.XMLTV = nil
-				*/
-				runtime.GC()
-
-			}()
-
-		case false:
-
+		go func() {
 			createXEPGMapping()
 			createXEPGDatabase()
 			mapping()
 			cleanupXEPG()
+			finish()
+		}()
 
-			go func() {
-
-				createXMLTVFile()
-				createM3UFile()
-
-				if Settings.CacheImages == true && System.ImageCachingInProgress == 0 {
-
-					go func() {
-
-						System.ImageCachingInProgress = 1
-						showInfo(fmt.Sprintf("Image Caching:Images are cached (%d)", len(Data.Cache.Images.Queue)))
-
-						Data.Cache.Images.Image.Caching()
-						Data.Cache.Images.Image.Remove()
-						showInfo("Image Caching:Done")
-
-						createXMLTVFile()
-						createM3UFile()
-
-						System.ImageCachingInProgress = 0
-
-					}()
-
-				}
-
-				showInfo("XEPG:" + fmt.Sprintf("Ready to use"))
-
-				System.ScanInProgress = 0
-
-				// Cache löschen
-				//Data.Cache.XMLTV = make(map[string]XMLTV)
-				//Data.Cache.XMLTV = nil
-				runtime.GC()
-
-			}()
-
-		}
-
-	} else {
-
-		getLineup()
-		System.ScanInProgress = 0
-
+		return
 	}
 
+	createXEPGMapping()
+	createXEPGDatabase()
+	mapping()
+	cleanupXEPG()
+
+	go finish()
+}
+
+// startImageCaching downloads channel/program images in the background (if
+// image caching is enabled) and regenerates the XMLTV/M3U files afterwards
+// so they point at the cached copies.
+func startImageCaching(images *imgcache.Cache) {
+
+	if Settings.CacheImages == false || images == nil || tryStartImageCaching() == false {
+		return
+	}
+
+	go func() {
+
+		defer endImageCaching()
+
+		showInfo(fmt.Sprintf("Image Caching:Images are cached (%d)", len(images.Queue)))
+
+		images.Image.Caching()
+		images.Image.Remove()
+		showInfo("Image Caching:Done")
+
+		createXMLTVFile()
+		createM3UFile()
+
+	}()
 }
 
 // XEPG Daten aktualisieren
 func updateXEPG(background bool) {
 
-	if System.ScanInProgress == 1 {
+	if tryStartScan() == false {
 		return
 	}
 
-	System.ScanInProgress = 1
-
-	if Settings.EpgSource == "XEPG" {
-
-		switch background {
-
-		case false:
-
-			createXEPGDatabase()
-			mapping()
-			cleanupXEPG()
-
-			go func() {
-
-				createXMLTVFile()
-				createM3UFile()
-				showInfo("XEPG:" + fmt.Sprintf("Ready to use"))
-
-				System.ScanInProgress = 0
-
-			}()
-
-		case true:
-			System.ScanInProgress = 0
-
-		}
-
-	} else {
-
-		System.ScanInProgress = 0
-
+	if Settings.EpgSource != "XEPG" || background {
+		endScan()
+		return
 	}
 
-	// Cache löschen
-	//Data.Cache.XMLTV = nil //make(map[string]XMLTV)
-	//Data.Cache.XMLTV = make(map[string]XMLTV)
+	createXEPGDatabase()
+	mapping()
+	cleanupXEPG()
 
-	return
+	go func() {
+		createXMLTVFile()
+		createM3UFile()
+		showInfo("XEPG:Ready to use")
+		endScan()
+		markRefreshed()
+	}()
 }
 
 // Mapping Menü für die XMLTV Dateien erstellen
@@ -866,7 +807,7 @@ func createDummyProgram(xepgChannel XEPGChannelStruct) (dummyXMLTV XMLTV) {
 			epg.Title = append(epg.Title, &Title{Value: xepgChannel.XName + " (" + epgStartTime.Weekday().String()[0:2] + ". " + epgStartTime.Format("15:04") + " - " + epgStopTime.Format("15:04") + ")", Lang: "en"})
 
 			if len(xepgChannel.XDescription) == 0 {
-				epg.Desc = append(epg.Desc, &Desc{Value: "xTeVe: (" + strconv.Itoa(dummyLength) + " Minutes) " + epgStartTime.Weekday().String() + " " + epgStartTime.Format("15:04") + " - " + epgStopTime.Format("15:04"), Lang: "en"})
+				epg.Desc = append(epg.Desc, &Desc{Value: "xTeVe Reborn: (" + strconv.Itoa(dummyLength) + " Minutes) " + epgStartTime.Weekday().String() + " " + epgStartTime.Format("15:04") + " - " + epgStopTime.Format("15:04"), Lang: "en"})
 			} else {
 				epg.Desc = append(epg.Desc, &Desc{Value: xepgChannel.XDescription, Lang: "en"})
 			}

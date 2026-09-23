@@ -35,6 +35,7 @@ type RequestStruct struct {
 		VLCOptions               *string   `json:"vlc.options,omitempty"`
 		VLCPath                  *string   `json:"vlc.path,omitempty"`
 		FilesUpdate              *bool     `json:"files.update,omitempty"`
+		SourceCheckInterval      *int      `json:"source.check.interval,omitempty"`
 		TempPath                 *string   `json:"temp.path,omitempty"`
 		Tuner                    *int      `json:"tuner,omitempty"`
 		UDPxy                    *string   `json:"udpxy,omitempty"`
@@ -65,6 +66,7 @@ type RequestStruct struct {
 		Finish    bool    `json:"finish,omitempty"`
 		M3U       *string `json:"m3u,omitempty"`
 		Tuner     *int    `json:"tuner,omitempty"`
+		WebAuth   *string `json:"webAuth,omitempty"`
 		XMLTV     *string `json:"xmltv,omitempty"`
 	} `json:"wizard,omitempty"`
 }
@@ -77,6 +79,8 @@ type ResponseStruct struct {
 		DVR             string `json:"DVR"`
 		EpgSource       string `json:"epgSource"`
 		Errors          int    `json:"errors"`
+		LastRefresh     string `json:"lastRefresh"`
+		NextSourceCheck string `json:"nextSourceCheck"`
 		M3U             string `json:"m3u-url,required"`
 		OS              string `json:"os"`
 		Streams         string `json:"streams"`

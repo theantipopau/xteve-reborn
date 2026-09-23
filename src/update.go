@@ -3,6 +3,7 @@ package src
 import (
 	"errors"
 	"fmt"
+	"os"
 
 	up2date "xteve-reborn/src/internal/up2date/client"
 
@@ -49,6 +50,8 @@ func checkForRelease() (release up2date.Release, isUpdate bool, err error) {
 // `go build .` from source has no reliable version to compare against).
 func BinaryUpdate() (err error) {
 
+	up2date.CleanupOldBinary()
+
 	if System.GitHub.Update == false {
 		return
 	}
@@ -65,7 +68,7 @@ func BinaryUpdate() (err error) {
 
 	showHighlight(fmt.Sprintf("Update available:%s (you're on %s)", release.Tag, System.ReleaseTag))
 
-	if Settings.XteveAutoUpdate == true {
+	if Settings.XteveAutoUpdate == true && runningInDocker() == false {
 		err = installRelease(release)
 		if err != nil {
 			ShowError(err, 6002)
@@ -75,9 +78,22 @@ func BinaryUpdate() (err error) {
 	return nil
 }
 
+// runningInDocker is set via the XTEVE_REBORN_DOCKER env var baked into the
+// official image. Containers are updated by pulling a new image, not by
+// rewriting the binary inside a running container (which a non-root
+// container user can't do anyway, and which a restart would undo).
+func runningInDocker() bool {
+	return os.Getenv("XTEVE_REBORN_DOCKER") == "1"
+}
+
 func installRelease(release up2date.Release) (err error) {
+
+	if runningInDocker() {
+		return fmt.Errorf("running in Docker: pull ghcr.io/theantipopau/xteve-reborn:%s and recreate the container to update", release.Tag)
+	}
+
 	showInfo(fmt.Sprintf("Update:Installing %s...", release.Tag))
-	return up2date.DoUpdate(release.ZipURL, release.Filename)
+	return up2date.DoUpdate(release.ZipURL, release.ChecksumsURL, release.Filename)
 }
 
 // CheckForUpdate re-checks GitHub for a newer release, for the manual

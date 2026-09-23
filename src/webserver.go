@@ -5,10 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"xteve-reborn/src/internal/authentication"
 
@@ -42,16 +44,41 @@ func StartWebserver() (err error) {
 		showHighlight(fmt.Sprintf("Web Interface:%s://%s:%s/web/", System.ServerProtocol.WEB, System.IPAddress, Settings.Port))
 
 	case 1:
-		showHighlight(fmt.Sprintf("Web Interface:%s://%s:%s/web/ | xTeVe is also available via the other %d IP.", System.ServerProtocol.WEB, System.IPAddress, Settings.Port, ips))
+		showHighlight(fmt.Sprintf("Web Interface:%s://%s:%s/web/ (also reachable via 1 other address)", System.ServerProtocol.WEB, System.IPAddress, Settings.Port))
 
 	default:
-		showHighlight(fmt.Sprintf("Web Interface:%s://%s:%s/web/ | xTeVe is also available via the other %d IP's.", System.ServerProtocol.WEB, System.IPAddress, Settings.Port, len(System.IPAddressesV4)+len(System.IPAddressesV6)-1))
+		showHighlight(fmt.Sprintf("Web Interface:%s://%s:%s/web/ (also reachable via %d other addresses)", System.ServerProtocol.WEB, System.IPAddress, Settings.Port, ips))
 
 	}
 
-	if err = http.ListenAndServe(":"+port, nil); err != nil {
+	listener, err := listenWithRetry(":"+port, 20, 250*time.Millisecond)
+	if err != nil {
 		ShowError(err, 1001)
 		return
+	}
+
+	if err = http.Serve(listener, nil); err != nil {
+		ShowError(err, 1001)
+		return
+	}
+
+	return
+}
+
+// listenWithRetry keeps trying to bind for a few seconds before giving up.
+// After a self-update on Windows the new process starts while the old one
+// is still exiting and holding the port; without a retry the new process
+// would fail to bind and quit, leaving nothing running.
+func listenWithRetry(address string, attempts int, delay time.Duration) (listener net.Listener, err error) {
+
+	for i := 0; i < attempts; i++ {
+
+		listener, err = net.Listen("tcp", address)
+		if err == nil {
+			return
+		}
+
+		time.Sleep(delay)
 	}
 
 	return
@@ -120,8 +147,10 @@ func Index(w http.ResponseWriter, r *http.Request) {
 // Stream : Web Server /stream/
 func Stream(w http.ResponseWriter, r *http.Request) {
 
-	var path = strings.Replace(r.RequestURI, "/stream/", "", 1)
-	//var stream = strings.SplitN(path, "-", 2)
+	// The parsed path, not r.RequestURI: the raw URI also carries any query
+	// string (and is absolute-form when sent through a proxy), which would
+	// make the stream ID lookup fail with a 404.
+	var path = strings.TrimPrefix(r.URL.Path, "/stream/")
 
 	streamInfo, err := getStreamInfo(path)
 	if err != nil {
@@ -189,7 +218,7 @@ func Stream(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, streamInfo.URL, 302)
 
 		showInfo("Streaming Info:URL was passed to the client.")
-		showInfo("Streaming Info:xTeVe is no longer involved, the client connects directly to the streaming server.")
+		showInfo("Streaming Info:The client now connects directly to the streaming server.")
 
 	default:
 		bufferingStream(streamInfo.PlaylistID, streamInfo.URL, streamInfo.Name, w, r)
@@ -492,9 +521,7 @@ func WS(w http.ResponseWriter, r *http.Request) {
 			}
 
 		case "resetLogs":
-			WebScreenLog.Log = make([]string, 0)
-			WebScreenLog.Errors = 0
-			WebScreenLog.Warnings = 0
+			resetWebLog()
 			response.OpenMenu = strconv.Itoa(indexOfString("log", System.WEB.Menu))
 
 		case "xteveBackup":
@@ -505,9 +532,7 @@ func WS(w http.ResponseWriter, r *http.Request) {
 			}
 
 		case "xteveRestore":
-			WebScreenLog.Log = make([]string, 0)
-			WebScreenLog.Errors = 0
-			WebScreenLog.Warnings = 0
+			resetWebLog()
 
 			if len(request.Base64) > 0 {
 
@@ -520,12 +545,12 @@ func WS(w http.ResponseWriter, r *http.Request) {
 				if err == nil {
 
 					if len(newWebURL) > 0 {
-						response.Alert = "Backup was successfully restored.\nThe port of the sTeVe URL has changed, you have to restart xTeVe.\nAfter a restart, xTeVe can be reached again at the following URL:\n" + newWebURL
+						response.Alert = "Backup restored. It uses a different port, so restart xTeVe Reborn - it will then be reachable at:\n" + newWebURL
 					} else {
 						response.Alert = "Backup was successfully restored."
 						response.Reload = true
 					}
-					showInfo("xTeVe:" + "Backup successfully restored.")
+					showInfo("Restore:Backup successfully restored.")
 				}
 
 			}
@@ -578,6 +603,18 @@ func WS(w http.ResponseWriter, r *http.Request) {
 				response.Alert = "You're up to date"
 			}
 
+		case "checkSources":
+
+			// Asynchronous: a large XMLTV source can take longer to fetch
+			// than the web UI's request timeout. The result lands in the Log
+			// and in the dashboard's refresh times.
+			go func() {
+				if _, errNew := runSourceCheck(); errNew != nil {
+					showInfo("Source Check:" + errNew.Error())
+				}
+			}()
+			response.Alert = "Checking sources for changes..."
+
 		case "installUpdate":
 
 			errNew := InstallAvailableUpdate()
@@ -601,7 +638,7 @@ func WS(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			response.Status = false
 			response.Error = err.Error()
-			response.Settings = Settings
+			response.Settings = snapshotSettings()
 		}
 
 		response = setDefaultResponseData(response, true)
@@ -659,7 +696,7 @@ func Web(w http.ResponseWriter, r *http.Request) {
 
 	if getFilenameFromPath(requestFile) == "html" {
 
-		if System.ScanInProgress == 0 {
+		if scanInProgress() == false {
 
 			if len(Settings.Files.M3U) == 0 && len(Settings.Files.HDHR) == 0 {
 				System.ConfigurationWizard = true
@@ -678,7 +715,7 @@ func Web(w http.ResponseWriter, r *http.Request) {
 
 		}
 
-		if System.ScanInProgress == 1 {
+		if scanInProgress() {
 			file = requestFile + "maintenance.html"
 		}
 
@@ -1057,8 +1094,11 @@ func setDefaultResponseData(response ResponseStruct, data bool) (defaults Respon
 	xepgLock.Unlock()
 
 	defaults.ClientInfo.UUID = Settings.UUID
-	defaults.ClientInfo.Errors = WebScreenLog.Errors
-	defaults.ClientInfo.Warnings = WebScreenLog.Warnings
+	defaults.ClientInfo.LastRefresh, defaults.ClientInfo.NextSourceCheck = refreshTimes()
+
+	var logSnapshot = snapshotWebLog()
+	defaults.ClientInfo.Errors = logSnapshot.Errors
+	defaults.ClientInfo.Warnings = logSnapshot.Warnings
 
 	updateStateLock.Lock()
 	defaults.ClientInfo.UpdateAvailable = System.UpdateAvailable
@@ -1077,7 +1117,7 @@ func setDefaultResponseData(response ResponseStruct, data bool) (defaults Respon
 	notificationLock.Unlock()
 	defaults.Notification = notificationSnapshot
 
-	defaults.Log = WebScreenLog
+	defaults.Log = logSnapshot
 
 	switch System.Branch {
 
@@ -1136,7 +1176,7 @@ func setDefaultResponseData(response ResponseStruct, data bool) (defaults Respon
 
 		}
 
-		defaults.Settings = Settings
+		defaults.Settings = snapshotSettings()
 
 		// Same reasoning as above: these are rebuilt wholesale by
 		// buildDatabaseDVR under xepgLock, so reading them needs the same

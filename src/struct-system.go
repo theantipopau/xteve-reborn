@@ -13,7 +13,6 @@ type SystemStruct struct {
 	APIVersion             string
 	AppName                string
 	ARCH                   string
-	BackgroundProcess      bool
 	Branch                 string
 	Build                  string
 	Compatibility          string
@@ -68,16 +67,14 @@ type SystemStruct struct {
 		Temp         string
 	}
 
-	Hostname               string
-	ImageCachingInProgress int
-	IPAddress              string
-	IPAddressesList        []string
-	IPAddressesV4          []string
-	IPAddressesV6          []string
-	Name                   string
-	OS                     string
-	ScanInProgress         int
-	TimeForAutoUpdate      string
+	Hostname          string
+	IPAddress         string
+	IPAddressesList   []string
+	IPAddressesV4     []string
+	IPAddressesV6     []string
+	Name              string
+	OS                string
+	TimeForAutoUpdate string
 
 	Notification map[string]Notification
 
@@ -300,6 +297,7 @@ type SettingsStruct struct {
 	M3U8AdaptiveBandwidthMBPS int                   `json:"m3u8.adaptive.bandwidth.mbps"`
 	MappingFirstChannel       float64               `json:"mapping.first.channel"`
 	Port                      string                `json:"port"`
+	SourceCheckInterval       int                   `json:"source.check.interval"`
 	SSDP                      bool                  `json:"ssdp"`
 	TempPath                  string                `json:"temp.path"`
 	Tuner                     int                   `json:"tuner"`

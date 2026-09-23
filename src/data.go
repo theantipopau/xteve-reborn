@@ -9,6 +9,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"xteve-reborn/src/internal/authentication"
@@ -34,6 +35,9 @@ func updateServerSettings(request RequestStruct) (settings SettingsStruct, err e
 			switch key {
 
 			case "tuner":
+				if tuners, ok := value.(float64); ok {
+					value = float64(clampTuners(int(tuners)))
+				}
 				showWarning(2105)
 
 			case "epgSource":
@@ -62,6 +66,27 @@ func updateServerSettings(request RequestStruct) (settings SettingsStruct, err e
 				}
 
 				value = newUpdateTimes
+
+			case "source.check.interval":
+				// 0 turns checking off; anything else is floored at 5 minutes
+				// so a typo can't have every source re-fetched every minute.
+				var minutes, _ = value.(float64)
+				switch {
+				case minutes <= 0:
+					minutes = 0
+				case minutes < 5:
+					minutes = 5
+				}
+				value = minutes
+
+				// Reschedule from now so the dashboard's "Next check"
+				// reflects the new interval straight away.
+				refreshStateLock.Lock()
+				nextSourceCheck = time.Time{}
+				if minutes > 0 {
+					nextSourceCheck = time.Now().Add(time.Duration(minutes) * time.Minute)
+				}
+				refreshStateLock.Unlock()
 
 			case "cache.images":
 				cacheImages = true
@@ -204,12 +229,16 @@ func updateServerSettings(request RequestStruct) (settings SettingsStruct, err e
 
 		if cacheImages == true {
 
-			if Settings.EpgSource == "XEPG" && System.ImageCachingInProgress == 0 {
+			if Settings.EpgSource == "XEPG" && imageCachingInProgress() == false {
 
-				Data.Cache.Images, err = imgcache.New(System.Folder.ImagesCache, fmt.Sprintf("%s://%s/images/", System.ServerProtocol.WEB, System.Domain), Settings.CacheImages)
-				if err != nil {
-					ShowError(err, 0)
+				images, errNew := imgcache.New(System.Folder.ImagesCache, fmt.Sprintf("%s://%s/images/", System.ServerProtocol.WEB, System.Domain), Settings.CacheImages)
+				if errNew != nil {
+					ShowError(errNew, 0)
 				}
+
+				xepgLock.Lock()
+				Data.Cache.Images = images
+				xepgLock.Unlock()
 
 				switch Settings.CacheImages {
 
@@ -218,22 +247,25 @@ func updateServerSettings(request RequestStruct) (settings SettingsStruct, err e
 					createM3UFile()
 
 				case true:
-					go func() {
+					if images != nil && tryStartImageCaching() {
 
-						createXMLTVFile()
-						createM3UFile()
+						go func() {
 
-						System.ImageCachingInProgress = 1
-						showInfo("Image Caching:Images are cached")
+							createXMLTVFile()
+							createM3UFile()
 
-						Data.Cache.Images.Image.Caching()
-						showInfo("Image Caching:Done")
+							showInfo("Image Caching:Images are cached")
 
-						System.ImageCachingInProgress = 0
+							images.Image.Caching()
+							showInfo("Image Caching:Done")
 
-						buildXEPG(false)
+							endImageCaching()
 
-					}()
+							buildXEPG(false)
+
+						}()
+
+					}
 
 				}
 
@@ -379,17 +411,12 @@ func updateFile(request RequestStruct, fileType string) (err error) {
 		updateData = request.Files.XMLTV
 	}
 
+	var items []providerRef
 	for dataID := range updateData {
-
-		err = getProviderData(fileType, dataID)
-		if err == nil {
-			err = buildDatabaseDVR()
-			buildXEPG(false)
-		}
-
+		items = append(items, providerRef{fileType, dataID})
 	}
 
-	return
+	return refreshProviders(items)
 }
 
 // Providerdaten löschen (WebUI)
@@ -508,11 +535,12 @@ func saveFilter(request RequestStruct) (settings SettingsStruct, err error) {
 // XEPG Mapping speichern
 func saveXEpgMapping(request RequestStruct) (err error) {
 
-	var tmp = Data.XEPG
+	// Only used to confirm the submitted mapping is a valid JSON object.
+	var tmp map[string]interface{}
 
-	Data.Cache.Images, err = imgcache.New(System.Folder.ImagesCache, fmt.Sprintf("%s://%s/images/", System.ServerProtocol.WEB, System.Domain), Settings.CacheImages)
-	if err != nil {
-		ShowError(err, 0)
+	images, errImages := imgcache.New(System.Folder.ImagesCache, fmt.Sprintf("%s://%s/images/", System.ServerProtocol.WEB, System.Domain), Settings.CacheImages)
+	if errImages != nil {
+		ShowError(errImages, 0)
 	}
 
 	err = json.Unmarshal([]byte(mapToJSON(request.EpgMapping)), &tmp)
@@ -526,42 +554,35 @@ func saveXEpgMapping(request RequestStruct) (err error) {
 	}
 
 	xepgLock.Lock()
+	Data.Cache.Images = images
 	Data.XEPG.Channels = request.EpgMapping
 	xepgLock.Unlock()
 
-	if System.ScanInProgress == 0 {
+	if tryStartScan() {
 
-		System.ScanInProgress = 1
 		cleanupXEPG()
-		System.ScanInProgress = 0
+		endScan()
 		buildXEPG(true)
 
 	} else {
 
-		// Wenn während des erstellen der Datanbank das Mapping erneut gespeichert wird, wird die Datenbank erst später erneut aktualisiert.
+		// Saved while a rebuild is running: queue exactly one follow-up
+		// rebuild for when it finishes, however many saves happen meanwhile.
+		if atomic.CompareAndSwapInt32(&rebuildQueued, 0, 1) == false {
+			return
+		}
+
 		go func() {
 
-			if System.BackgroundProcess == true {
-				return
+			defer atomic.StoreInt32(&rebuildQueued, 0)
+
+			for tryStartScan() == false {
+				time.Sleep(time.Second)
 			}
 
-			System.BackgroundProcess = true
-
-			for {
-				time.Sleep(time.Duration(1) * time.Second)
-				if System.ScanInProgress == 0 {
-					break
-				}
-
-			}
-
-			System.ScanInProgress = 1
 			cleanupXEPG()
-			System.ScanInProgress = 0
+			endScan()
 			buildXEPG(false)
-			showInfo("XEPG:" + fmt.Sprintf("Ready to use"))
-
-			System.BackgroundProcess = false
 
 		}()
 
@@ -645,6 +666,17 @@ func saveNewUser(request RequestStruct) (err error) {
 	return
 }
 
+// clampTuners keeps the tuner count within what the UI offers (1-100).
+func clampTuners(tuners int) int {
+	switch {
+	case tuners < 1:
+		return 1
+	case tuners > 100:
+		return 100
+	}
+	return tuners
+}
+
 // Wizard (WebUI)
 func saveWizard(request RequestStruct) (nextStep int, err error) {
 
@@ -655,12 +687,19 @@ func saveWizard(request RequestStruct) (nextStep int, err error) {
 		switch key {
 
 		case "tuner":
-			Settings.Tuner = int(value.(float64))
+			Settings.Tuner = clampTuners(int(value.(float64)))
 			nextStep = 1
 
 		case "epgSource":
 			Settings.EpgSource = value.(string)
 			nextStep = 2
+
+		case "webAuth":
+			// "true" makes the next page load go to the create-first-user
+			// screen (the web handler sends it there whenever web
+			// authentication is on and no user exists yet).
+			Settings.AuthenticationWEB = value.(string) == "true"
+			nextStep = 5
 
 		case "finish":
 			nextStep = 10
@@ -734,7 +773,6 @@ func saveWizard(request RequestStruct) (nextStep int, err error) {
 				}
 
 				buildXEPG(false)
-				System.ScanInProgress = 0
 
 			}
 
@@ -803,7 +841,11 @@ func buildDatabaseDVR() (err error) {
 	xepgLock.Lock()
 	defer xepgLock.Unlock()
 
-	System.ScanInProgress = 1
+	// Only clear the flag at the end if this call set it - if an XEPG
+	// rebuild is already running, it owns the flag and clears it itself.
+	if tryStartScan() {
+		defer endScan()
+	}
 
 	Data.Streams.All = make([]interface{}, 0, System.UnfilteredChannelLimit)
 	Data.Streams.Active = make([]interface{}, 0, System.UnfilteredChannelLimit)
@@ -980,7 +1022,6 @@ func buildDatabaseDVR() (err error) {
 		showWarning(2001)
 	}
 
-	System.ScanInProgress = 0
 	showInfo(fmt.Sprintf("All streams:%d", len(Data.Streams.All)))
 	showInfo(fmt.Sprintf("Active streams:%d", len(Data.Streams.Active)))
 	showInfo(fmt.Sprintf("Filter:%d", len(Data.Filter)))

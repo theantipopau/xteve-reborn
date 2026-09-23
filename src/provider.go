@@ -14,6 +14,9 @@ import (
 // fileType: Welcher Dateityp soll aktualisiert werden (m3u, hdhr, xml) | fileID: Update einer bestimmten Datei (Provider ID)
 func getProviderData(fileType, fileID string) (err error) {
 
+	providerLock.Lock()
+	defer providerLock.Unlock()
+
 	var fileExtension, serverFileName string
 	var body = make([]byte, 0)
 	var newProvider = false

@@ -15,6 +15,14 @@ services:
     container_name: xteve-reborn
     restart: unless-stopped
     network_mode: host
+    environment:
+      # Owner of the files written to ./config (run `id` on the host to
+      # find yours). The container drops to this user after startup.
+      - PUID=1000
+      - PGID=1000
+      # Refresh schedules ("0000" = midnight) and the dashboard's times use
+      # this timezone; containers default to UTC.
+      - TZ=Etc/UTC
     volumes:
       - ./config:/config
     # If you don't want host networking, comment out network_mode above

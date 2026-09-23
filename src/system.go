@@ -122,6 +122,9 @@ func loadSettings() (settings SettingsStruct, err error) {
 	defaults["vlc.options"] = System.VLC.DefaultOptions
 	defaults["files"] = dataMap
 	defaults["files.update"] = true
+	// Minutes between checks of each M3U/XMLTV source for changes (0 = off).
+	// A check that finds nothing new is one conditional request per source.
+	defaults["source.check.interval"] = 60
 	defaults["filter"] = make(map[string]interface{})
 	defaults["git.branch"] = System.Branch
 	defaults["language"] = "en"

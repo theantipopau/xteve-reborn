@@ -62,7 +62,7 @@ nav p {
   margin-right: 25px;
 }
 
-#box input[type=text], #box input[type=password] {
+#box input[type=text], #box input[type=password], #box input[type=number] {
   width: calc(100% - 20px);
 }
 
@@ -265,6 +265,35 @@ nav p {
   text-transform: uppercase;
   letter-spacing: 0.6px;
   color: var(--text-muted);
+}
+
+.stat-sub {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+#unsavedBar.block {
+  position: fixed;
+  left: 50%;
+  bottom: 20px;
+  transform: translateX(-50%);
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background-color: var(--bg-elevated);
+  border: solid 1px var(--accent);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  max-width: calc(100% - 32px);
+}
+
+#unsavedBar.block input[type=button] {
+  margin: 0;
 }
 
 .stat-action {

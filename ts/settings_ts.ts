@@ -296,17 +296,26 @@ class SettingsCategory {
         tdLeft.innerHTML = "{{.settings.tuner.title}}" + ":"
 
         var tdRight = document.createElement("TD")
-        var text = new Array()
-        var values = new Array()
+        var input = content.createInput("number", settingsKey, data)
+        input.setAttribute("min", "1")
+        input.setAttribute("max", "100")
+        input.setAttribute("onchange", "javascript: this.className = 'changed'")
+        tdRight.appendChild(input)
 
-        for (var i = 1; i <= 100; i++) {
-          text.push(i)
-          values.push(i)
-        }
+        setting.appendChild(tdLeft)
+        setting.appendChild(tdRight)
+        break
 
-        var select = content.createSelect(text, values, data, settingsKey)
-        select.setAttribute("onchange", "javascript: this.className = 'changed'")
-        tdRight.appendChild(select)
+      case "source.check.interval":
+        var tdLeft = document.createElement("TD")
+        tdLeft.innerHTML = "{{.settings.sourceCheckInterval.title}}" + ":"
+
+        var tdRight = document.createElement("TD")
+        var input = content.createInput("number", settingsKey, data)
+        input.setAttribute("min", "0")
+        input.setAttribute("max", "1440")
+        input.setAttribute("onchange", "javascript: this.className = 'changed'")
+        tdRight.appendChild(input)
 
         setting.appendChild(tdLeft)
         setting.appendChild(tdRight)
@@ -365,7 +374,7 @@ class SettingsCategory {
         tdLeft.innerHTML = "{{.settings.streamBuffering.title}}" + ":"
 
         var tdRight = document.createElement("TD")
-        var text:any[] = ["{{.settings.streamBuffering.info_false}}", "xTeVe: ({{.settings.streamBuffering.info_xteve}})", "FFmpeg: ({{.settings.streamBuffering.info_ffmpeg}})", "VLC: ({{.settings.streamBuffering.info_vlc}})"]
+        var text:any[] = ["{{.settings.streamBuffering.info_false}}", "xTeVe Reborn: ({{.settings.streamBuffering.info_xteve}})", "FFmpeg: ({{.settings.streamBuffering.info_ffmpeg}})", "VLC: ({{.settings.streamBuffering.info_vlc}})"]
         var values:any[] = ["-", "xteve", "ffmpeg", "vlc"]
 
         var select = content.createSelect(text, values, data, settingsKey)
@@ -478,6 +487,10 @@ class SettingsCategory {
         text = "{{.settings.tuner.description}}"
         break
 
+      case "source.check.interval":
+        text = "{{.settings.sourceCheckInterval.description}}"
+        break
+
       case "update":
         text = "{{.settings.update.description}}"
         break
@@ -585,14 +598,91 @@ class SettingsCategoryItem extends SettingsCategory {
 function showSettings() {
   console.log("SETTINGS");
 
+  clearSettingsDirty()
+
   for (let i = 0; i < settingsCategory.length; i++) {
     settingsCategory[i].createCategory()
   }
 
+  var div = document.getElementById("content_settings")
+  div.addEventListener("input", markSettingsDirty)
+  div.addEventListener("change", markSettingsDirty)
+
 }
+
+// Unsaved-changes tracking for the Settings page: a bar at the bottom of
+// the screen appears as soon as anything is edited, and leaving the page
+// (another menu item, or closing the tab) asks before throwing edits away.
+var SETTINGS_DIRTY:boolean = false
+
+function markSettingsDirty():void {
+
+  SETTINGS_DIRTY = true
+
+  var bar = document.getElementById("unsavedBar")
+
+  if (!bar) {
+    bar = document.createElement("DIV")
+    bar.id = "unsavedBar"
+
+    var message = document.createElement("SPAN")
+    message.textContent = "{{.settings.unsaved.message}}"
+    bar.appendChild(message)
+
+    var discard = document.createElement("INPUT")
+    discard.setAttribute("type", "button")
+    discard.setAttribute("value", "{{.settings.unsaved.discard}}")
+    discard.setAttribute("class", "cancel")
+    discard.onclick = discardSettings
+    bar.appendChild(discard)
+
+    var save = document.createElement("INPUT")
+    save.setAttribute("type", "button")
+    save.setAttribute("value", "{{.button.save}}")
+    save.setAttribute("class", "save")
+    save.onclick = saveSettings
+    bar.appendChild(save)
+
+    document.body.appendChild(bar)
+  }
+
+  showElement("unsavedBar", true)
+}
+
+function clearSettingsDirty():void {
+
+  SETTINGS_DIRTY = false
+
+  if (document.getElementById("unsavedBar")) {
+    showElement("unsavedBar", false)
+  }
+}
+
+function discardSettings():void {
+
+  clearSettingsDirty()
+
+  for (var i = 0; i < menuItems.length; i++) {
+    if (menuItems[i]["menuKey"] == "settings") {
+      document.getElementById(menuItems[i].id).click()
+      return
+    }
+  }
+}
+
+window.addEventListener("beforeunload", function(e) {
+  if (SETTINGS_DIRTY) {
+    e.preventDefault()
+    e.returnValue = ""
+  }
+})
 
 function saveSettings() {
   console.log("Save Settings");
+
+  // Cleared up front: the server's reply re-opens the Settings menu, which
+  // would otherwise trigger the "discard unsaved changes?" prompt.
+  clearSettingsDirty()
 
   var cmd = "saveSettings"
   var div = document.getElementById("content_settings")
@@ -612,6 +702,18 @@ function saveSettings() {
           case "checkbox":
             name = (settings[i] as HTMLInputElement).name
             value = (settings[i] as HTMLInputElement).checked
+            newSettings[name] = value
+            break
+
+          case "number":
+            name = (settings[i] as HTMLInputElement).name
+            value = parseInt((settings[i] as HTMLInputElement).value)
+
+            if (isNaN(value)) {
+              showToast(name + ": {{.alert.missingInput}}", "error")
+              return
+            }
+
             newSettings[name] = value
             break
 
