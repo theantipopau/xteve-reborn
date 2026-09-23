@@ -13,8 +13,9 @@ overhaul, on top of the original project. Not affiliated with the upstream xTeVe
 Original documentation for setup and configuration (still largely applicable) is
 [here](https://github.com/xteve-project/xTeVe-Documentation/blob/master/en/configuration.md).
 
-The built-in self-updater is disabled in this fork (see `xteve.go`) — updates come from
-this repo's own commits/releases, not upstream's binaries.
+Updates come from this repo's own GitHub releases, never upstream's binaries: the app checks for a
+newer release daily and shows an "Update available" banner, and can install it (checksum-verified)
+with one click or automatically if you turn that on in Settings.
 
 ---
 
@@ -283,6 +284,40 @@ who wants that instead. Also fixed a real correctness bug found while building t
 comparison gets prerelease version ordering wrong (`"v3.0.0-pre.10" < "v3.0.0-pre.2"` lexically,
 even though pre.10 is newer) — added a small semver-ish comparator with full test coverage instead.
 
+#### 3.0.1
+* **The guide now updates itself when your source changes.** Previously the M3U/XMLTV sources were
+  only re-downloaded at fixed schedule times (default: once a day at midnight), so an EPG change
+  upstream didn't reach Plex until the next day. Now every source is also checked every 60 minutes
+  (configurable, 0 = off) and the guide is rebuilt only when a source's content actually changed —
+  and only the changed source is re-downloaded. Checks use conditional requests, so a server that
+  supports ETag / Last-Modified answers "not modified" without resending the file. The dashboard
+  shows when the guide last refreshed and when the next check is, with a "Check sources now" button.
+* **Fixed the Log page showing literal `&nbsp;`.** The server encoded spaces as HTML entities, which
+  the XSS-safe log viewer then displayed as text.
+* **Fixed the log silently dropping new lines once full.** An off-by-range trim (inherited from
+  upstream) threw away the newest line on every other write after 500 entries — errors included.
+* **Fixed log writes racing.** Each log function created its own mutex per call, which locks
+  nothing; all log access now goes through one lock.
+* **Fixed stream requests 404ing** when a client adds a query string (or connects via a proxy):
+  the stream handler read the raw request URI instead of the parsed path. Found by the new tests.
+* **Hardened the updater:** downloads are time-bounded, every release now ships a SHA-256
+  checksums file that the updater verifies before installing, only the expected binary is read
+  from the zip (the old extractor was open to path traversal), and after a Windows update the new
+  process waits for the old one to release the port instead of exiting.
+* **Rebuild flags are now atomic.** "Is a rebuild running?" was checked and then set in two steps,
+  so two rebuilds could start together, and one rebuild finishing could clear another's flag.
+* **Docker runs as a normal user.** The image drops to `PUID`/`PGID` (default 1000) after fixing
+  `/config` ownership, and the self-updater stays off in containers — update by pulling the image.
+  CI now starts the container and checks it serves the tuner endpoints as a non-root user.
+* **Setup wizard asks whether to require a login** (recommended — the Log page shows provider URLs,
+  which usually contain your account credentials), and uses a number field for the tuner count.
+* **Settings:** reorganized into Playlists & Guide / App Updates sections, number fields where
+  they belong, and an "unsaved changes" bar that also warns before you navigate away and lose edits.
+* **Maintenance page reloads itself** instead of telling you to "try again later".
+* Leftover upstream branding and broken English in the UI cleaned up.
+* New tests for the tuner/lineup/stream endpoints Plex actually calls (including backup-channel
+  failover), log trimming, source-change detection, and the updater.
+
 ---
 
 ## Requirements
@@ -311,7 +346,9 @@ even though pre.10 is newer) — added a small semver-ish comparator with full t
 #### Files
 * Merge external M3U files
 * Merge external XMLTV files
-* Automatic M3U and XMLTV update
+* Automatic M3U and XMLTV update: a full refresh at scheduled times, plus a check of each source
+  every 60 minutes (configurable in Settings → Playlists & Guide) that rebuilds the guide as soon
+  as a source actually changes
 * M3U and XMLTV export
 
 #### Channel management
@@ -333,9 +370,9 @@ even though pre.10 is newer) — added a small semver-ish comparator with full t
 
 ## Downloads
 Prebuilt binaries (Windows/Linux/macOS, amd64+arm64) are published on the
-[Releases page](https://github.com/theantipopau/xteve-reborn/releases). The current release is a
-prerelease (`3.0.0-pre.3`) — functionally complete and CI-tested, but new enough to not have
-real-world mileage yet. You can also build from source (below).
+[Releases page](https://github.com/theantipopau/xteve-reborn/releases). The current release is
+`3.0.1`. Each release includes an `xteve-reborn_<version>_checksums.txt` file of SHA-256 hashes. You can also build from
+source (below).
 
 #### Docker
 Official multi-arch images (linux/amd64, linux/arm64) are published to GitHub Container Registry
@@ -347,9 +384,14 @@ docker pull ghcr.io/theantipopau/xteve-reborn:latest
 
 ```
 docker run -d --name xteve-reborn --network host \
+  -e PUID=1000 -e PGID=1000 -e TZ=Australia/Sydney \
   -v ./config:/config \
   ghcr.io/theantipopau/xteve-reborn:latest
 ```
+
+The container runs as `PUID`:`PGID` (default 1000:1000 — use the output of `id` on the host) and
+takes ownership of `/config` at startup. Set `TZ` so scheduled refresh times match your local
+time; containers default to UTC. To update, pull the new image and recreate the container.
 
 A [`docker-compose.yml`](docker-compose.yml) example is in the repo. `--network host` (Linux only)
 gives Plex/Emby the best shot at auto-discovering the tuner over SSDP, since Docker's default
