@@ -109,7 +109,11 @@ func getLineup() (jsonContent []byte, err error) {
 	xepgLock.Lock()
 	defer xepgLock.Unlock()
 
-	var lineup Lineup
+	// Non-nil, so a lineup with no active channels marshals as [] rather than
+	// null. The HDHomeRun protocol serves /lineup.json as a JSON array, and a
+	// nil slice serialises to null - which is what a fresh install with no
+	// provider source configured yet actually returned.
+	lineup := Lineup{}
 
 	switch Settings.EpgSource {
 

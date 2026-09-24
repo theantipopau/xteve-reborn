@@ -151,6 +151,25 @@ func TestJellyfinLineupShape(t *testing.T) {
 	}
 }
 
+// TestJellyfinEmptyLineupIsArray pins the no-channels case. A fresh install
+// that has no provider source configured yet still has to answer /lineup.json
+// with a JSON array: that's what the HDHomeRun protocol specifies, and a nil
+// slice serialises to null instead. Found by the Jellyfin container smoke run,
+// which is the only place this code path was ever exercised with an empty
+// channel database.
+func TestJellyfinEmptyLineupIsArray(t *testing.T) {
+
+	setupTunerTest(t)
+
+	Settings.EpgSource = "XEPG"
+	setChannels(map[string]interface{}{})
+
+	var body = strings.TrimSpace(string(get(t, Index, "/lineup.json").Body.Bytes()))
+	if body != "[]" {
+		t.Errorf("/lineup.json with no channels = %s, want []", body)
+	}
+}
+
 // TestXMLTVGuideContract generates a guide through the real code path and
 // checks the structure Jellyfin's XMLTV parser consumes. Jellyfin is stricter
 // than Plex about the guide, and a guide that parses but has programs attached

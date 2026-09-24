@@ -71,6 +71,9 @@ jobs:
           set -euo pipefail
           BIN="xteve-reborn${{ matrix.ext }}"
           NAME="xteve-reborn_${VERSION}_${{ matrix.goos }}_${{ matrix.goarch }}.zip"
+          # zip will not create the output directory for us, and this is a
+          # fresh runner, so make it first or zip exits 15 (I/O error).
+          mkdir -p "${GITHUB_WORKSPACE}/dist"
           # -j junks the directory, so the binary sits at the zip root - that
           # exact top-level entry is what extractFile() matches on.
           ( cd "package/${BIN}" && zip -q -j "${GITHUB_WORKSPACE}/dist/${NAME}" "${BIN}" )
@@ -135,12 +138,27 @@ jobs:
           NOTES="tools/release/notes-${TAG}.md"
           if [ -f "$NOTES" ]; then
             echo "Using hand-written notes from $NOTES"
-            BODY=(--notes-file "$NOTES")
+            NOTES_ARGS=(--notes-file "$NOTES")
           else
             echo "No $NOTES - falling back to generated notes"
-            BODY=(--generate-notes)
+            NOTES_ARGS=(--generate-notes)
           fi
 
-          gh release create "$TAG" dist/*.zip dist/*.txt \
-            --title "xteve-reborn ${TAG#v}" \
-            "${BODY[@]}" $PRE
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            # A tag can be re-pushed (a force-move, or a re-release after a fix)
+            # and the release will already be there. Refresh it instead of
+            # failing on "release already exists".
+            echo "Release $TAG already exists - refreshing notes and assets"
+            # `gh release edit` has no --generate-notes, so only override the
+            # body when there is a hand-written one to override it with.
+            if [ -f "$NOTES" ]; then
+              gh release edit "$TAG" --title "xteve-reborn ${TAG#v}" --notes-file "$NOTES" $PRE
+            else
+              gh release edit "$TAG" --title "xteve-reborn ${TAG#v}" $PRE
+            fi
+            gh release upload "$TAG" dist/*.zip dist/*.txt --clobber
+          else
+            gh release create "$TAG" dist/*.zip dist/*.txt \
+              --title "xteve-reborn ${TAG#v}" \
+              "${NOTES_ARGS[@]}" $PRE
+          fi
