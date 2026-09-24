@@ -57,7 +57,7 @@ var SettingsCategory = /** @class */ (function () {
                 tdLeft.innerHTML = "{{.settings.tempPath.title}}" + ":";
                 var tdRight = document.createElement("TD");
                 var input = content.createInput("text", "temp.path", data);
-                input.setAttribute("placeholder", "{{.settings.tmpPath.placeholder}}");
+                input.setAttribute("placeholder", "{{.settings.tempPath.placeholder}}");
                 input.setAttribute("onchange", "javascript: this.className = 'changed'");
                 tdRight.appendChild(input);
                 setting.appendChild(tdLeft);
@@ -263,6 +263,20 @@ var SettingsCategory = /** @class */ (function () {
                 var input = content.createInput("number", settingsKey, data);
                 input.setAttribute("min", "0");
                 input.setAttribute("max", "1440");
+                input.setAttribute("onchange", "javascript: this.className = 'changed'");
+                tdRight.appendChild(input);
+                setting.appendChild(tdLeft);
+                setting.appendChild(tdRight);
+                break;
+            case "plex.channel.limit":
+            case "unfiltered.channel.limit":
+                var titleKey = (settingsKey == "plex.channel.limit") ? "{{.settings.plexChannelLimit.title}}" : "{{.settings.unfilteredChannelLimit.title}}";
+                var tdLeft = document.createElement("TD");
+                tdLeft.innerHTML = titleKey + ":";
+                var tdRight = document.createElement("TD");
+                var input = content.createInput("number", settingsKey, data);
+                input.setAttribute("min", "1");
+                input.setAttribute("max", "100000");
                 input.setAttribute("onchange", "javascript: this.className = 'changed'");
                 tdRight.appendChild(input);
                 setting.appendChild(tdLeft);

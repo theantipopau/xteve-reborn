@@ -2,6 +2,8 @@ package src
 
 import (
 	"encoding/json"
+	"os"
+	"strings"
 	"testing"
 )
 
@@ -203,6 +205,179 @@ func TestAutoFillBackupsPersistsWhileRebuildRunning(t *testing.T) {
 	var savedRaw, _ = saved[idA].(map[string]interface{})
 	if savedRaw == nil || savedRaw["x-backup-channel-1"] != "http://p2/cc" {
 		t.Errorf("saved channel backup = %v, want http://p2/cc", savedRaw)
+	}
+
+}
+
+// normaliseChannelName is what pairs channels across providers: it must ignore
+// formatting, but never merge channels that differ by a number or a word.
+func TestNormaliseChannelName(t *testing.T) {
+
+	var cases = []struct {
+		in   string
+		want string
+	}{
+		{"Sky News", "skynews"},
+		{"  sky   news  ", "skynews"},
+		{"Sky-News", "skynews"},
+		{"sky_news", "skynews"},
+		{"Sky News HD", "skynews"},
+		{"Sky News FHD", "skynews"},
+		{"Sky News (Backup)", "skynews"},
+		{"Sky News [4K]", "skynews"},
+		{"Sky News HEVC", "skynews"},
+		{"BBC One", "bbcone"},
+		{"BBC Two", "bbctwo"},
+		{"BBC One +1", "bbcone1"},
+		{"HD", "hd"},
+		{"4K", "4k"},
+		{"(Backup)", ""},
+		{"   ", ""},
+		{"", ""},
+	}
+
+	for _, c := range cases {
+		if got := normaliseChannelName(c.in); got != c.want {
+			t.Errorf("normaliseChannelName(%q) = %q, want %q", c.in, got, c.want)
+		}
+	}
+
+}
+
+// Provider spelling differences must not stop a match: same channel, one
+// provider writes an HD suffix, the other a bracketed copy marker.
+func TestAutoFillBackupsMatchesNamesAcrossFormatting(t *testing.T) {
+
+	idA, chA := autoBackupTestChannel("1000", "M1", "Sky News HD", "http://p1/sky-news", "")
+	idB, chB := autoBackupTestChannel("2000", "M2", "sky-news (Backup)", "http://p2/skynews", "")
+
+	setupAutoBackupTest(t, map[string]interface{}{idA: chA, idB: chB})
+
+	message, err := autoFillBackups(RequestStruct{Cmd: "autoFillBackups"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(message)
+
+	if chA["x-backup-channel-1"] != "http://p2/skynews" {
+		t.Errorf("provider-1 backup = %v, want http://p2/skynews", chA["x-backup-channel-1"])
+	}
+
+	if chB["x-backup-channel-1"] != "http://p1/sky-news" {
+		t.Errorf("provider-2 backup = %v, want http://p1/sky-news", chB["x-backup-channel-1"])
+	}
+
+}
+
+// A time-shifted or differently numbered channel is a different channel and
+// must never be picked as a backup for its neighbour.
+func TestAutoFillBackupsKeepsDifferentChannelsApart(t *testing.T) {
+
+	idA, chA := autoBackupTestChannel("1000", "M1", "BBC One", "http://p1/bbcone", "")
+	idB, chB := autoBackupTestChannel("2000", "M2", "BBC Two", "http://p2/bbctwo", "")
+	idC, chC := autoBackupTestChannel("3000", "M2", "BBC One +1", "http://p2/bbcone-plus1", "")
+
+	setupAutoBackupTest(t, map[string]interface{}{idA: chA, idB: chB, idC: chC})
+
+	if _, err := autoFillBackups(RequestStruct{Cmd: "autoFillBackups"}); err != nil {
+		t.Fatal(err)
+	}
+
+	if chA["x-backup-channel-1"] != "" {
+		t.Errorf("BBC One was backed up by a different channel: %v", chA["x-backup-channel-1"])
+	}
+
+}
+
+// A dry run reports what would be filled and touches nothing: no write-back
+// into the database, no save.
+func TestAutoFillBackupsDryRunChangesNothing(t *testing.T) {
+
+	idA, chA := autoBackupTestChannel("1000", "M1", "Nat Geo HD", "http://p1/natgeo", "")
+	idB, chB := autoBackupTestChannel("2000", "M2", "Nat Geo", "http://p2/natgeo", "")
+
+	setupAutoBackupTest(t, map[string]interface{}{idA: chA, idB: chB})
+
+	message, err := autoFillBackups(RequestStruct{Cmd: "autoFillBackups", Options: []string{"dryrun"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(message)
+
+	if chA["x-backup-channel-1"] != "" || chB["x-backup-channel-1"] != "" {
+		t.Errorf("dry run wrote backups: %v / %v", chA["x-backup-channel-1"], chB["x-backup-channel-1"])
+	}
+
+	if message == "" || strings.Contains(message, "Dry run") == false {
+		t.Errorf("dry run message = %q, want a preview summary", message)
+	}
+
+	if _, statErr := os.Stat(System.File.XEPG); statErr == nil {
+		t.Error("dry run saved the XEPG database, it must not write anything")
+	}
+
+}
+
+// A guide rebuild stores channels as structs, a loaded xepg.json as maps -
+// auto-fill has to cope with both. Regression: with struct entries the
+// write-back found no map, skipped every channel, and reported that nothing
+// was there to fill.
+func TestAutoFillBackupsWorksWithStructChannelEntries(t *testing.T) {
+
+	var idA, idB = "x-ID.0", "x-ID.1"
+
+	var channelA = XEPGChannelStruct{FileM3UID: "M1", Name: "Arte", XName: "Arte", URL: "http://p1/arte", XActive: true, XEPG: idA, XChannelID: "1000"}
+	var channelB = XEPGChannelStruct{FileM3UID: "M2", Name: "Arte HD", XName: "Arte HD", URL: "http://p2/arte", XActive: true, XEPG: idB, XChannelID: "2000"}
+
+	setupAutoBackupTest(t, map[string]interface{}{idA: channelA, idB: channelB})
+
+	message, err := autoFillBackups(RequestStruct{Cmd: "autoFillBackups"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Log(message)
+
+	// Whatever the rebuild that follows does to the in-memory database, the
+	// filled backups must be in the saved xepg.json.
+	var saved, err2 = loadJSONFileToMap(System.File.XEPG)
+	if err2 != nil {
+		t.Fatalf("XEPG file did not parse after auto-fill: %v", err2)
+	}
+
+	var stored, _ = saved[idA].(map[string]interface{})
+
+	if stored == nil {
+		t.Fatalf("struct channel entry was not filled and saved: %v", saved[idA])
+	}
+
+	if stored["x-backup-channel-1"] != "http://p2/arte" {
+		t.Errorf("backup = %v, want http://p2/arte (the other provider's URL)", stored["x-backup-channel-1"])
+	}
+
+	if message == "" || strings.Contains(message, "filled on") == false {
+		t.Errorf("message = %q, want a filled summary", message)
+	}
+
+}
+
+// The dry run follows the same overwrite semantics, still without saving.
+func TestAutoFillBackupsDryRunWithOverwriteChangesNothing(t *testing.T) {
+
+	idA, chA := autoBackupTestChannel("1000", "M1", "Discovery", "http://p1/discovery", "http://custom/keep")
+	idB, chB := autoBackupTestChannel("2000", "M2", "Discovery", "http://p2/discovery", "")
+
+	setupAutoBackupTest(t, map[string]interface{}{idA: chA, idB: chB})
+
+	if _, err := autoFillBackups(RequestStruct{Cmd: "autoFillBackups", Options: []string{"overwrite", "dryrun"}}); err != nil {
+		t.Fatal(err)
+	}
+
+	if chA["x-backup-channel-1"] != "http://custom/keep" {
+		t.Errorf("dry run overwrote a custom backup: %v", chA["x-backup-channel-1"])
+	}
+
+	if chB["x-backup-channel-1"] != "" {
+		t.Errorf("dry run wrote a backup: %v", chB["x-backup-channel-1"])
 	}
 
 }

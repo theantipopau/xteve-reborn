@@ -3,7 +3,7 @@
 > Pre-posting checklist:
 > - Repo is **public** (verified): https://github.com/theantipopau/xteve-reborn
 > - Prebuilt binaries + a multi-arch Docker image are on the
->   [Releases page](https://github.com/theantipopau/xteve-reborn/releases). Current release: **3.0.3**.
+>   [Releases page](https://github.com/theantipopau/xteve-reborn/releases). Current release: **3.0.4**.
 > - Include the repo link, the Releases link, and `ghcr.io/theantipopau/xteve-reborn:latest`.
 > - Skim each subreddit's self-promotion / flair rules first, and don't post identical copies
 >   everywhere the same day.
@@ -15,7 +15,7 @@
 ## Suggested title
 
 **The original xTeVe hasn't had a real release since 2021, so I forked it, fixed the crashes and
-security bugs, modernized it, and rebuilt the UI — xteve-reborn 3.0.2**
+security bugs, modernized it, and rebuilt the UI — xteve-reborn 3.0.4**
 
 Alternate:
 **I forked abandoned xTeVe (the M3U proxy for Plex/Emby/Jellyfin Live TV), fixed real bugs, and
@@ -33,8 +33,7 @@ fixed, and a UI that looks exactly like it did five years ago.
 So instead of just complaining, I forked it: **[xteve-reborn](https://github.com/theantipopau/xteve-reborn)**.
 Same core idea — it merges your M3U playlists and XMLTV guide data and presents itself to
 Plex/Emby/Jellyfin as an HDHomeRun-style tuner, so your IPTV sources show up as Live TV with a real
-guide. It's now at **3.0.3**, and the first releases with prebuilt binaries and a multi-arch Docker
-image.
+guide. It's now at **3.0.4**, with prebuilt binaries and a multi-arch Docker image.
 
 **What I fixed:**
 
@@ -59,8 +58,19 @@ image.
   viewers first, then the least-loaded one — so the same channel from three providers doesn't pile
   onto one account until it hits its connection limit. One dashboard click auto-fills the backups
   from your other providers by matching channel names, so multi-provider setups get failover
-  across the whole lineup without editing channels one by one. (The load-aware selection idea
+  across the whole lineup without editing channels one by one, and a preview tells you what it would
+  change first. If you use an Xtream provider, the account's own connection limit is read too, so a
+  provider whose account is full elsewhere is never treated as idle. (The load-aware selection idea
   came from u/c0y0t3d3n's own IPTV tuner — credited in the README.)
+- **Your provider's per-stream metadata, kept (new in 3.0.4).** `#KODIPROP`, `#EXTVLCOPT` and
+  `#EXTHTTP` lines used to be thrown away during parsing. They now come back out in the M3U this
+  serves, so a provider-mandated user agent, custom headers, or DRM licence metadata still reach
+  Kodi/TiviMate/VLC. Plex/Emby/Jellyfin ignore those lines — this is for M3U clients and no-buffer
+  mode.
+- **The dashboard tells you if failover can work at all (new in 3.0.4)** — how many active channels
+  actually have a backup, and whether each playlist/guide source is healthy. Channel limits (480 by
+  default) are settings now, so a big Jellyfin/Emby lineup can be activated without writing a dummy
+  filter.
 - **A real self-updater.** The old one shipped pointed at upstream's binaries with auto-update on (it
   would have overwritten the fork). It now pulls this repo's releases, and every release ships a
   SHA-256 checksums file it verifies before installing.

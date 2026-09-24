@@ -20,6 +20,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -46,6 +47,115 @@ func isStreamURLReachable(streamURL string) bool {
 	defer resp.Body.Close()
 
 	return resp.StatusCode == http.StatusOK
+}
+
+// streamProbeTTL is how long a reachability probe result is trusted. A channel
+// with backups probes up to four URLs before it can pick a source, so a
+// popular channel whose primary is busy would otherwise re-probe every
+// upstream on every single play request. Short enough that a provider which
+// just died (or just recovered) is noticed within seconds.
+const streamProbeTTL = 15 * time.Second
+
+// streamProbeCache remembers the outcome of recent reachability probes.
+var streamProbeCacheLock sync.Mutex
+var streamProbeCache = make(map[string]streamProbe)
+
+type streamProbe struct {
+	reachable bool
+	checked   time.Time
+}
+
+// isStreamURLReachableCached is isStreamURLReachable with the short-lived cache
+// above. Used by source selection: correctness only needs "was this source
+// serving a moment ago", and the cache is what keeps failover from probing all
+// of a channel's sources again for every viewer.
+func isStreamURLReachableCached(streamURL string) bool {
+
+	if len(streamURL) == 0 {
+		return false
+	}
+
+	streamProbeCacheLock.Lock()
+
+	if probe, ok := streamProbeCache[streamURL]; ok && time.Since(probe.checked) < streamProbeTTL {
+		streamProbeCacheLock.Unlock()
+		return probe.reachable
+	}
+
+	streamProbeCacheLock.Unlock()
+
+	var reachable = isStreamURLReachable(streamURL)
+
+	streamProbeCacheLock.Lock()
+	// A large lineup must not grow this map without bound: a handful of
+	// channels fit in a few thousand entries, so starting over is fine.
+	if len(streamProbeCache) > 4096 {
+		streamProbeCache = make(map[string]streamProbe)
+	}
+	streamProbeCache[streamURL] = streamProbe{reachable: reachable, checked: time.Now()}
+	streamProbeCacheLock.Unlock()
+
+	return reachable
+}
+
+// resetStreamProbeCache drops every cached probe result. Used by the tests,
+// where a closed test server's port can be handed straight back out to the
+// next one.
+func resetStreamProbeCache() {
+
+	streamProbeCacheLock.Lock()
+	streamProbeCache = make(map[string]streamProbe)
+	streamProbeCacheLock.Unlock()
+
+}
+
+// providerHasFreeSlots reports whether the provider behind a stream URL can
+// take one more connection. Providers with no known limit always can - only
+// Xtream accounts report their status.
+func providerHasFreeSlots(streamURL string) bool {
+
+	var free, known = providerFreeSlots(streamURL)
+	return known == false || free > 0
+}
+
+// lessLoadedSource reports whether source a should be preferred over b when
+// both are reachable. Ordering, in order of importance:
+//
+//  1. a provider whose account is already full comes last, whatever the local
+//     viewer count says,
+//  2. this instance's own viewers - fewer first,
+//  3. the provider account's remaining connections - more free first, which is
+//     the signal c0y0t3d3n's iptv project uses.
+//
+// A provider with no known limit is never assumed to be full.
+func lessLoadedSource(a, b string) bool {
+
+	var fullA = providerHasFreeSlots(a) == false
+	var fullB = providerHasFreeSlots(b) == false
+
+	if fullA != fullB {
+		return fullB
+	}
+
+	var activeA, activeB = activeClientConnections(a), activeClientConnections(b)
+	if activeA != activeB {
+		return activeA < activeB
+	}
+
+	var freeA, knownA = providerFreeSlots(a)
+	var freeB, knownB = providerFreeSlots(b)
+
+	switch {
+	case knownA == false && knownB == false:
+		return false
+	case knownA == false:
+		// b's account limit is known: prefer it, unless it is full.
+		return freeB <= 0
+	case knownB == false:
+		return freeA > 0
+	}
+
+	return freeA > freeB
 }
 
 // activeClientConnections reports how many viewers this xTeVe Reborn instance
@@ -100,13 +210,20 @@ func resolveReachableStreamURL(streamInfo StreamInfo) string {
 
 	var primary = streamInfo.URL
 
+	// Xtream account limits take part in the load comparison below. This only
+	// reads the cache and, when it is stale, starts one background refresh -
+	// the request path never waits for a provider.
+	providerCapacityMaybeStale()
+
 	// Fast path: the primary answers and is not serving any streams from this
 	// instance. One probe, same as the first-responder behavior this function
 	// used to have - only channels whose primary is down or already in use
 	// pay for further checks.
-	if isStreamURLReachable(primary) {
+	if isStreamURLReachableCached(primary) {
 
-		if activeClientConnections(primary) == 0 {
+		// "Idle" means idle here AND the provider can take the connection:
+		// another app sharing the same account can have used the last one.
+		if activeClientConnections(primary) == 0 && providerHasFreeSlots(primary) {
 			return primary
 		}
 
@@ -118,11 +235,11 @@ func resolveReachableStreamURL(streamInfo StreamInfo) string {
 				continue
 			}
 
-			if isStreamURLReachable(backupURL) {
+			if isStreamURLReachableCached(backupURL) {
 
 				reachableURLs = append(reachableURLs, backupURL)
 
-				if activeClientConnections(backupURL) == 0 {
+				if activeClientConnections(backupURL) == 0 && providerHasFreeSlots(backupURL) {
 					return backupURL
 				}
 
@@ -130,10 +247,11 @@ func resolveReachableStreamURL(streamInfo StreamInfo) string {
 
 		}
 
-		// No idle source. Serve from the reachable one with the fewest
-		// active viewers; SliceStable keeps this deterministic.
+		// No idle source. Serve from the least loaded one - this instance's own
+		// viewers first, then the provider's remaining connections;
+		// SliceStable keeps this deterministic.
 		sort.SliceStable(reachableURLs, func(i, j int) bool {
-			return activeClientConnections(reachableURLs[i]) < activeClientConnections(reachableURLs[j])
+			return lessLoadedSource(reachableURLs[i], reachableURLs[j])
 		})
 
 		return reachableURLs[0]
@@ -150,11 +268,11 @@ func resolveReachableStreamURL(streamInfo StreamInfo) string {
 			continue
 		}
 
-		if isStreamURLReachable(backupURL) {
+		if isStreamURLReachableCached(backupURL) {
 
 			reachableBackups = append(reachableBackups, backupURL)
 
-			if activeClientConnections(backupURL) == 0 {
+			if activeClientConnections(backupURL) == 0 && providerHasFreeSlots(backupURL) {
 				return backupURL
 			}
 
@@ -167,7 +285,7 @@ func resolveReachableStreamURL(streamInfo StreamInfo) string {
 	}
 
 	sort.SliceStable(reachableBackups, func(i, j int) bool {
-		return activeClientConnections(reachableBackups[i]) < activeClientConnections(reachableBackups[j])
+		return lessLoadedSource(reachableBackups[i], reachableBackups[j])
 	})
 
 	return reachableBackups[0]
@@ -308,9 +426,10 @@ func bufferingStream(playlistID, streamingURL, channelName string, w http.Respon
 					var content string
 					content = GetHTMLString(value.(string))
 
+					// No Content-Length: a live/placeholder stream has no known
+					// length, and declaring one makes net/http clamp the body.
 					w.WriteHeader(200)
 					w.Header().Set("Content-type", "video/mpeg")
-					w.Header().Set("Content-Length:", "0")
 
 					for i := 1; i < 60; i++ {
 						_ = i
@@ -486,7 +605,12 @@ func bufferingStream(playlistID, streamingURL, channelName string, w http.Respon
 										_ = contentType
 										//w.Header().Set("Content-type", "video/mpeg")
 										w.Header().Set("Content-type", contentType)
-										w.Header().Set("Content-Length", "0")
+										// Deliberately no Content-Length. A restream is
+										// open-ended, and Go clamps the body to a
+										// declared length - "Content-Length: 0" here
+										// once meant every client got an empty response
+										// instead of the stream. Chunked encoding is what
+										// Plex, ffmpeg and VLC expect.
 										w.Header().Set("Connection", "close")
 
 									}

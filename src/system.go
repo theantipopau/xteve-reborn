@@ -130,6 +130,13 @@ func loadSettings() (settings SettingsStruct, err error) {
 	defaults["language"] = "en"
 	defaults["log.entries.ram"] = 500
 	defaults["mapping.first.channel"] = 1000
+	// Advisory channel thresholds. They decide when every unfiltered stream is
+	// activated at once and when the Plex / unfiltered warnings fire, so they
+	// are settings rather than constants: Plex really does choke somewhere
+	// around 480, while Jellyfin and Emby handle far bigger lineups. 0 keeps
+	// the historical 480.
+	defaults["plex.channel.limit"] = 480
+	defaults["unfiltered.channel.limit"] = 480
 	defaults["xepg.replace.missing.images"] = true
 	defaults["m3u8.adaptive.bandwidth.mbps"] = 10
 	defaults["port"] = "34400"
@@ -216,6 +223,12 @@ func saveSettings(settings SettingsStruct) (err error) {
 
 	Settings = settings
 
+	// One place derives the thresholds the stream/lineup code reads, so a
+	// changed setting takes effect immediately and a settings.json from an
+	// older version (no keys at all) keeps the historical 480.
+	System.PlexChannelLimit = channelLimitOrDefault(settings.PlexChannelLimit, 480)
+	System.UnfilteredChannelLimit = channelLimitOrDefault(settings.UnfilteredChannelLimit, 480)
+
 	if System.Dev == true {
 		Settings.UUID = "2019-01-DEV-xTeVe!"
 	}
@@ -223,6 +236,22 @@ func saveSettings(settings SettingsStruct) (err error) {
 	setDeviceID()
 
 	return
+}
+
+// channelLimitOrDefault turns a configured channel threshold into the value
+// the lineup and stream code uses: unset (0 or less) keeps the historical
+// default, and an absurd value is capped rather than trusted.
+func channelLimitOrDefault(value, def int) int {
+
+	switch {
+	case value <= 0:
+		return def
+	case value > 100000:
+		return 100000
+	default:
+		return value
+	}
+
 }
 
 // Zugriff über die Domain ermöglichen

@@ -12,7 +12,102 @@ being worked on), and say plainly what has *not* been verified yet.
 
 ---
 
-## Unreleased
+## 3.0.4 — in progress
+
+### Per-stream directive passthrough (#KODIPROP, #EXTVLCOPT, #EXTHTTP)
+
+A user on the launch post pointed at [chtugha/xTeVe-dietpi](https://github.com/chtugha/xTeVe-dietpi) and
+mentioned that their private build (based on it) raised the channel limit and added "metadata inclusion
+for each stream (e.g. kodiprop, clearkey)". The fork itself adds nothing that isn't already here — its
+updater, manual update button, `-restore`/`-branch`/`-info` flags, salted hashing, cookie
+`Path`/`SameSite` and dependency versions are all in this tree already — but its headline "Plex
+restreaming" fix prompted a check of the buffered send path: `buffer.go` still set
+`Content-Length: 0` before writing the first segment. That turned out to be **dead code**:
+`bufferingStream` calls `w.WriteHeader(200)` first, so the header map is already snapshotted and a later
+`Set` is ignored. Verified by probing both orderings against Go's server (CL set after `WriteHeader`:
+940/940 bytes delivered; set before: `wrote=0`, empty body). The two leftovers are now gone and the
+invariant is documented in a comment.
+
+The real gap was per-stream directives: the M3U parser deleted every `#` line, and the M3U this instance
+serves emitted only its own `#EXTINF`. Now:
+
+- The parser collects `#`-prefixed lines per stream into `_directives` (newline separated, provider
+  order preserved); the channel's own `#EXTINF` was already split off. They are not added to `_values`,
+  so filters are unaffected.
+- `M3UChannelStructXEPG` / `XEPGChannelStruct` carry it as `x-directives`, refreshed from the provider
+  file on every rebuild like the URL — no database migration, existing `xepg.json` entries just gain the
+  field.
+- `buildM3U` emits the directives between the channel's `#EXTINF` and its stream URL.
+
+That is what gets a provider-mandated `http-user-agent` (`#EXTVLCOPT`) or `#EXTHTTP` headers to
+Kodi/TiviMate/VLC, and what carries `#KODIPROP` licence metadata for DRM. Plex, Emby and Jellyfin parse
+none of it, and buffered re-streaming drops DRM regardless — stated plainly because "kodiprop support"
+sounds like DRM in Plex and is not.
+
+**Verified:** new parser test (`directives_test.go`) pins capture, order and non-leakage into `_values`;
+new `m3u_test.go` pins placement between `#EXTINF` and the URL plus the untouched no-directive channel;
+full suite, gofmt, vet and build clean; embedded bundle regenerated. **Not verified:** against a real
+Kodi/TiviMate client.
+
+### Source selection v2: Xtream account limits + cached probes
+
+The 3.0.3 load model only knew *this* instance's viewer count, blind to other apps sharing an account.
+For Xtream Codes providers (`user_info`), `max_connections`/`active_cons` are now read in the background
+(single-flight, 3s timeout, 2 minute TTL, 30s minimum gap, capped host map) and used by selection:
+
+- a source whose provider account is **full** is no longer treated as idle — both the primary fast path
+  and the idle-backup early return check it,
+- between equally loaded sources, more free connections wins,
+- providers with no known limit are never assumed full and keep the old behaviour.
+
+Discovery is by playlist URL: a source carrying `username`/`password` query parameters is Xtream, and the
+`player_api.php` endpoint is derived from it. The request path never waits for a provider — it reads the
+cache and, when stale, starts one background refresh. Chosen sources now log their remaining provider
+connections when known.
+
+Reachability probes are cached for 15 seconds (`isStreamURLReachableCached`), so a channel with backups
+stops re-probing up to four URLs per play request. The cache is process-wide, so tests reset it
+(`resetStreamProbeCache` in `setupTunerTest` and `setActiveConnections`): a closed test server's port can
+be handed straight back out.
+
+**Verified:** new `provider_capacity_test.go` (Xtream URL detection, quoted and numeric `user_info`
+parsing, unknown providers, capacity-aware selection with a saturated account, avoiding a full provider)
+and the 7 existing failover tests still green. **Not verified:** against a real Xtream account; the
+capacity refresh is lazy only (no maintenance-loop hook yet).
+
+### Channel thresholds are settings; dashboard shows failover coverage and source health
+
+The 480-channel thresholds were constants. They are now `plex.channel.limit` and
+`unfiltered.channel.limit` in `settings.json`, editable in Settings next to the source-check interval,
+default 480 (historical), capped at 100000. `saveSettings` is the single place deriving
+`System.PlexChannelLimit`/`System.UnfilteredChannelLimit`, so a change applies on save and an older
+`settings.json` behaves exactly as before. Advisory only — warnings 2000/2001 and the "activate
+everything when no filter exists" gate — and the setting descriptions say so.
+
+The dashboard gained `Backups on: N of M` (active channels with at least one backup, read from both
+stored shapes with no JSON round-trip) and `Sources: 3 ok` / `1 failing (name)`, from a new per-source
+status recorded on every provider fetch and source check.
+
+**Verified:** build, full suite, gofmt clean; bundle regenerated. **Not verified:** in a browser.
+
+### Fixed: auto-fill backups skipped every channel after a rebuild
+
+`Data.XEPG.Channels` holds `XEPGChannelStruct` values after a rebuild and maps after a loaded
+`xepg.json`; `autoFillBackups` only accepted maps and skipped anything else, so on a normally rebuilt
+database it found no channels at all and reported "No two providers share a channel name". It now
+converts and keeps the entry as a map when needed. Auto-fill also matches names tolerantly
+(`normaliseChannelName`: bracketed markers, separators and format/quality tokens such as
+`HD`/`FHD`/`4K`/`HEVC` dropped; digits and ordinary words kept, so `BBC One +1` stays distinct) and
+gained a `dryrun` option that reports the plan — up to ten examples in the log — without writing or
+rebuilding. The dashboard has a **Preview backups** action for it.
+
+**Verified:** new tests for the struct-entry regression, the tolerant matcher (table-driven),
+non-matching neighbours, and dry run with and without `overwrite` (asserting nothing was written to
+memory or disk).
+
+---
+
+## 3.0.3 — the rest of what shipped in it
 
 ### Load-aware backup selection (idea credited to c0y0t3d3n/iptv)
 

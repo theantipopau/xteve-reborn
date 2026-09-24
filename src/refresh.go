@@ -39,6 +39,92 @@ var nextSourceCheck time.Time
 // answers "304 Not Modified" without resending the whole file.
 var sourceValidators = make(map[string]sourceValidator)
 
+// sourceStatusLock guards the per-source check results below.
+var sourceStatusLock sync.Mutex
+
+// sourceStatusBySource remembers the outcome of the last check of each source,
+// so the dashboard can say which provider is healthy instead of making the
+// operator read the log. Keyed by file type + provider ID.
+var sourceStatusBySource = make(map[string]sourceStatus)
+
+type sourceStatus struct {
+	name    string
+	checked time.Time
+	err     string
+}
+
+// getProviderName returns a provider's configured display name, falling back
+// to its ID, for status lines.
+func getProviderName(fileType, id string) string {
+
+	providerLock.Lock()
+	defer providerLock.Unlock()
+
+	var files = Settings.Files.M3U
+	if fileType == "xmltv" {
+		files = Settings.Files.XMLTV
+	}
+
+	if data, ok := files[id].(map[string]interface{}); ok {
+		if name, ok := data["name"].(string); ok && len(name) > 0 {
+			return name
+		}
+	}
+
+	return id
+
+}
+
+// recordSourceStatus stores the outcome of one source check.
+func recordSourceStatus(fileType, id, name string, err error) {
+
+	sourceStatusLock.Lock()
+	defer sourceStatusLock.Unlock()
+
+	var status = sourceStatus{name: name, checked: time.Now()}
+	if err != nil {
+		status.err = err.Error()
+	}
+
+	sourceStatusBySource[fileType+id] = status
+
+}
+
+// sourceStatusSummary reports how many sources were checked and how many of
+// those are currently failing, for the dashboard. Sources that were never
+// checked are reported as such rather than as healthy.
+func sourceStatusSummary() (summary string) {
+
+	sourceStatusLock.Lock()
+
+	var checked, failing int
+	var firstFailure string
+
+	for _, status := range sourceStatusBySource {
+		checked++
+		if len(status.err) > 0 {
+			failing++
+			if len(firstFailure) == 0 {
+				firstFailure = status.name
+			}
+		}
+	}
+
+	sourceStatusLock.Unlock()
+
+	switch {
+	case checked == 0:
+		return "not checked yet"
+	case failing == 0:
+		return fmt.Sprintf("%d ok", checked)
+	case failing == 1:
+		return fmt.Sprintf("1 failing (%s)", firstFailure)
+	default:
+		return fmt.Sprintf("%d of %d failing", failing, checked)
+	}
+
+}
+
 type sourceValidator struct {
 	etag         string
 	lastModified string
@@ -127,10 +213,15 @@ func refreshProviders(items []providerRef) (err error) {
 
 	for _, item := range items {
 
+		var providerName = getProviderName(item.fileType, item.id)
+
 		if errNew := getProviderData(item.fileType, item.id); errNew != nil {
+			recordSourceStatus(item.fileType, item.id, providerName, errNew)
 			err = errNew
 			continue
 		}
+
+		recordSourceStatus(item.fileType, item.id, providerName, nil)
 
 		ok++
 	}
@@ -238,6 +329,8 @@ func changedSources() (items []providerRef) {
 	for _, s := range sources {
 
 		changed, err := sourceChanged(s.ref, s.source)
+		recordSourceStatus(s.ref.fileType, s.ref.id, s.name, err)
+
 		if err != nil {
 			showInfo(fmt.Sprintf("Source Check:Could not check %s (%s)", s.name, err))
 			continue

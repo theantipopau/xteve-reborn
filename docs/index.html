@@ -146,7 +146,7 @@
       fork of the original xTeVe — faster, safer, and kept current.
     </p>
     <div class="cta">
-      <a class="btn primary" href="https://github.com/theantipopau/xteve-reborn/releases">Download 3.0.3</a>
+      <a class="btn primary" href="https://github.com/theantipopau/xteve-reborn/releases/latest">Download 3.0.4</a>
       <a class="btn ghost" href="https://github.com/theantipopau/xteve-reborn#highlights-what-this-fork-fixes-or-adds-over-upstream-xteve">What this fork fixes</a>
       <a class="btn ghost" href="https://github.com/theantipopau/xteve-reborn">Source on GitHub</a>
     </div>
@@ -160,11 +160,23 @@
     <p class="sub">Upstream xTeVe was abandoned in 2020. This fork keeps what worked and fixes what didn't.</p>
     <div class="grid">
       <div class="card"><span class="tag">Streaming</span>
-        <h3>Load-aware failover</h3>
+        <h3>Failover that knows your provider</h3>
         <p>Up to 3 backup URLs per channel. A healthy, idle source wins; busy sources share viewers by
-        lowest load — the same channel from several providers no longer piles onto one account until
-        it hits its connection limit. One click auto-fills backups from your other providers by
-        matching channel names. Idea credited to c0y0t3d3n's iptv project.</p>
+        lowest load. For Xtream providers the account's own connection status is read too, so a source
+        whose account is full elsewhere is never treated as idle. One click auto-fills backups from your
+        other providers by matching channel names, and a preview shows what would change before it does.</p>
+      </div>
+      <div class="card"><span class="tag">Providers</span>
+        <h3>Your provider metadata, intact</h3>
+        <p>Per-stream directives — <code>#KODIPROP</code>, <code>#EXTVLCOPT</code>,
+        <code>#EXTHTTP</code> — are carried through into the M3U this serves, so a mandated user agent,
+        custom headers or DRM licence metadata still reach Kodi, TiviMate and VLC.</p>
+      </div>
+      <div class="card"><span class="tag">Insight</span>
+        <h3>See what can actually fail over</h3>
+        <p>The dashboard counts how many active channels have a backup, and whether each playlist and
+        guide source is healthy on its last check. Channel limits are settings you can raise — no code
+        edit, no dummy filter to force a big lineup active.</p>
       </div>
       <div class="card"><span class="tag">Guide</span>
         <h3>EPG that stays current</h3>
@@ -191,6 +203,33 @@
         <p>A setup wizard for first-run configuration, a rebuilt light web UI, and Jellyfin support
         verified by an end-to-end CI test against a real server.</p>
       </div>
+    </div>
+  </div>
+</section>
+
+<section id="whatsnew">
+  <div class="wrap">
+    <h2>What's new in 3.0.4</h2>
+    <p class="sub">Released as <code>v3.0.4</code> — a drop-in upgrade from 3.0.x; the in-app updater offers
+    it automatically.</p>
+    <div class="credits card">
+      <ul>
+        <li><strong>Provider metadata passthrough.</strong> <code>#KODIPROP</code>,
+          <code>#EXTVLCOPT</code>, <code>#EXTHTTP</code> and <code>#EXTGRP</code> are kept and
+          re-emitted in the M3U you serve, in the order your provider wrote them.</li>
+        <li><strong>Xtream account limits in failover.</strong> A source on an account that is full
+          elsewhere is no longer treated as idle, and the provider with more free connections wins
+          between equally loaded sources.</li>
+        <li><strong>15-second probe cache.</strong> A channel with backups probes each source at most
+          once per 15s instead of once per play request.</li>
+        <li><strong>Visibility.</strong> <code>Backups on: N of M</code> and a per-source health
+          summary on the dashboard.</li>
+        <li><strong>Channel limits are settings.</strong> <code>plex.channel.limit</code> and
+          <code>unfiltered.channel.limit</code>, default 480 as before.</li>
+        <li><strong>Fixed:</strong> auto-fill backups silently did nothing after a guide rebuild, and
+          two leftovers in the buffered streaming path declared a body length after the headers had
+          been sent.</li>
+      </ul>
     </div>
   </div>
 </section>
@@ -227,6 +266,9 @@
         <li><a href="https://github.com/c0y0t3d3n/iptv">c0y0t3d3n/iptv</a> — two ideas: load-aware
           source selection (prefer the provider with the most free connections) and merging lineups
           across providers by matching channel names.</li>
+        <li><a href="https://github.com/chtugha/xTeVe-dietpi">chtugha/xTeVe-dietpi</a> — a user's
+          suggestion of this fork (and the per-stream metadata their own build added) is where 3.0.4's
+          <code>#KODIPROP</code>/<code>#EXTVLCOPT</code> passthrough started.</li>
         <li><a href="https://github.com/Threadfin/Threadfin">Threadfin</a> — backup/failover
           channels and Jellyfin support.</li>
         <li><a href="https://github.com/xteve-project/xteve">xTeVe</a> by saroxan — the original

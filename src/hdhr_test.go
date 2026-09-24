@@ -36,6 +36,11 @@ func setupTunerTest(t *testing.T) {
 	Data.Cache.StreamingURLS = make(map[string]StreamInfo)
 	streamingURLsLock.Unlock()
 
+	// Probe results and provider account status are cached process-wide: a
+	// closed test server's port can be reused by the next one, so start clean.
+	resetStreamProbeCache()
+	resetProviderCapacity()
+
 	t.Cleanup(func() {
 		Settings = oldSettings
 		System.ServerProtocol = oldProtocol

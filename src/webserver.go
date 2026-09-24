@@ -196,6 +196,13 @@ func Stream(w http.ResponseWriter, r *http.Request) {
 			// exists).
 			showWarning(4007)
 			showInfo(fmt.Sprintf("Stream Source:%s (%d active) - Using:%s", streamInfo.Name, activeClientConnections(chosenURL), chosenURL))
+
+			// When the chosen provider reports its account status, log what is
+			// left on it - the number that actually decides whether the next
+			// viewer still fits on this provider.
+			if free, known := providerFreeSlots(chosenURL); known {
+				showInfo(fmt.Sprintf("Stream Source:Provider connections free:%d", free))
+			}
 		}
 		streamInfo.URL = chosenURL
 
@@ -1117,6 +1124,12 @@ func setDefaultResponseData(response ResponseStruct, data bool) (defaults Respon
 	xepgLock.Lock()
 	defaults.ClientInfo.Streams = fmt.Sprintf("%d / %d", len(Data.Streams.Active), len(Data.Streams.All))
 	xepgLock.Unlock()
+
+	// Failover visibility: how much of the lineup has a backup to fail over to,
+	// and whether the sources themselves are healthy.
+	var channelsWithBackups, channelsActive = backupCoverage()
+	defaults.ClientInfo.Backups = fmt.Sprintf("%d of %d", channelsWithBackups, channelsActive)
+	defaults.ClientInfo.Sources = sourceStatusSummary()
 
 	defaults.ClientInfo.UUID = Settings.UUID
 	defaults.ClientInfo.LastRefresh, defaults.ClientInfo.NextSourceCheck = refreshTimes()

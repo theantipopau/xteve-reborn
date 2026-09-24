@@ -38,6 +38,8 @@ type RequestStruct struct {
 		VLCOptions               *string   `json:"vlc.options,omitempty"`
 		VLCPath                  *string   `json:"vlc.path,omitempty"`
 		FilesUpdate              *bool     `json:"files.update,omitempty"`
+		PlexChannelLimit         *int      `json:"plex.channel.limit,omitempty"`
+		UnfilteredChannelLimit   *int      `json:"unfiltered.channel.limit,omitempty"`
 		SourceCheckInterval      *int      `json:"source.check.interval,omitempty"`
 		TempPath                 *string   `json:"temp.path,omitempty"`
 		Tuner                    *int      `json:"tuner,omitempty"`
@@ -89,6 +91,8 @@ type ResponseStruct struct {
 		Streams         string `json:"streams"`
 		UpdateAvailable bool   `json:"updateAvailable,omitempty"`
 		UpdateVersion   string `json:"updateVersion,omitempty"`
+		Backups         string `json:"backups"`
+		Sources         string `json:"sources"`
 		UUID            string `json:"uuid"`
 		Version         string `json:"version"`
 		Warnings        int    `json:"warnings"`

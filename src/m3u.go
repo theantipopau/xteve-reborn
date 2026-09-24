@@ -231,7 +231,17 @@ func buildM3U(groups []string) (m3u string, err error) {
 		var parameter = fmt.Sprintf(`#EXTINF:0 channelID="%s" tvg-chno="%s" tvg-name="%s" tvg-id="%s" tvg-logo="%s" group-title="%s",%s`+"\n", channel.XEPG, channel.XChannelID, channel.XName, channel.XChannelID, imgc.Image.GetURL(channel.TvgLogo), channel.XGroupTitle, channel.XName)
 		var stream, err = createStreamingURL("M3U", channel.FileM3UID, channel.XChannelID, channel.XName, channel.URL)
 		if err == nil {
-			m3u = m3u + parameter + stream + "\n"
+
+			// Per-stream directives (#KODIPROP, #EXTVLCOPT, #EXTHTTP, ...) go
+			// back between the channel's #EXTINF and its URL, where the
+			// provider had them, so M3U players still see them. Plex, Emby and
+			// Jellyfin ignore them - they are for Kodi/TiviMate/VLC clients.
+			var directives string
+			if len(channel.XDirectives) > 0 {
+				directives = channel.XDirectives + "\n"
+			}
+
+			m3u = m3u + parameter + directives + stream + "\n"
 		}
 
 	}

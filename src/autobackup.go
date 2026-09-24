@@ -3,10 +3,12 @@ package src
 import (
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 	"sync/atomic"
 	"time"
+	"unicode"
 )
 
 // backupSlots are the XEPG channel keys holding the backup stream URLs, in
@@ -17,8 +19,10 @@ var backupSlots = []string{"x-backup-channel-1", "x-backup-channel-2", "x-backup
 // alongside its key in that database so changes can be written back.
 type autoBackupChannel struct {
 	id   string
-	name string // normalised (lower-cased, trimmed) channel name
-	url  string
+	name string // normalised channel name, used for matching
+	// display is the channel's name as configured, for log messages.
+	display string
+	url     string
 	// Original URL and backup slots, so updated channels can be written back
 	// into the raw map without disturbing the fields auto-fill doesn't own.
 	raw     map[string]interface{}
@@ -26,26 +30,92 @@ type autoBackupChannel struct {
 	backups [3]string
 }
 
-// normaliseChannelName makes channel-name comparisons tolerant of provider
-// formatting differences: case and surrounding whitespace are ignored. Only
-// that - no punctuation stripping - so "BBC One" and "BBC One HD" stay
-// distinct on purpose.
+// channelBrackets matches a bracketed marker in a channel name: "(Backup)",
+// "[FHD]", "{4K}".
+var channelBrackets = regexp.MustCompile(`[\(\[\{][^\)\]\}]*[\)\]\}]`)
+
+// channelNameNoise are the tokens providers sprinkle into the same channel's
+// name without meaning a different channel: video format/quality markers and
+// duplicate-copy markers. They are dropped before names are compared, so
+// "BBC One HD", "BBC One FHD" and "BBC One (Backup)" all reduce to the same
+// channel. Deliberately no ordinary words and no digits - dropping those
+// would merge genuinely different channels ("WWE Raw" with "WWE").
+var channelNameNoise = map[string]bool{
+	"hd":      true,
+	"fhd":     true,
+	"uhd":     true,
+	"qhd":     true,
+	"sd":      true,
+	"4k":      true,
+	"8k":      true,
+	"hevc":    true,
+	"h264":    true,
+	"h265":    true,
+	"avc":     true,
+	"backup":  true,
+	"backup1": true,
+	"backup2": true,
+}
+
+// normaliseChannelName reduces a channel name to what actually identifies the
+// channel: case, surrounding whitespace, punctuation/separators, bracketed
+// markers and the format tokens above are all ignored. That is what lets
+// auto-fill pair the same channel across providers that spell its name
+// differently ("Sky News HD" here, "sky-news" there). It stays conservative
+// on purpose: only known-noise tokens and separators are dropped, never
+// numbers or ordinary words, so "BBC One" and "BBC Two" can never be paired.
 func normaliseChannelName(name string) string {
-	return strings.ToLower(strings.TrimSpace(name))
+
+	var lowered = strings.ToLower(strings.TrimSpace(name))
+
+	// Strip bracketed markers first ("(Backup)"), then split the rest on
+	// anything that is neither a letter nor a digit, so "sky-news",
+	// "Sky News" and "sky_news" all produce the same tokens.
+	lowered = channelBrackets.ReplaceAllString(lowered, " ")
+
+	var fields = strings.FieldsFunc(lowered, func(r rune) bool {
+		return unicode.IsLetter(r) == false && unicode.IsDigit(r) == false
+	})
+
+	// Nothing name-like left at all ("(Backup)", whitespace, punctuation):
+	// there is nothing to compare, so the channel takes part in no group.
+	if len(fields) == 0 {
+		return ""
+	}
+
+	var kept []string
+	for _, field := range fields {
+		if channelNameNoise[field] == false {
+			kept = append(kept, field)
+		}
+	}
+
+	// A name that is nothing but noise ("HD") must not collapse to "" -
+	// that would match every other all-noise channel.
+	if len(kept) == 0 {
+		return strings.Join(fields, "")
+	}
+
+	return strings.Join(kept, "")
 }
 
 // autoFillBackups fills each active channel's empty backup slots with the
 // URLs of same-named channels from OTHER M3U providers - the typical
-// multi-provider setup where several carry the same channel. Backups are
-// chosen deterministically (sorted channel IDs), at most one per provider,
-// never the channel's own URL or one already configured. With overwrite set,
+// multi-provider setup where several carry the same channel. Channels are
+// matched by normaliseChannelName, so provider spelling differences ("HD",
+// "(Backup)", separators) don't stop a match. Backups are chosen
+// deterministically (sorted channel IDs), at most one per provider, never the
+// channel's own URL or one already configured. With the "overwrite" option,
 // ALL backup slots of multi-provider channels are rebuilt from scratch.
 //
-// The result is persisted exactly like saveXEpgMapping and one XEPG rebuild
-// runs under the same single-flight scan guard.
+// With the "dryrun" option nothing is written and no rebuild runs: the plan is
+// reported instead, so the operator can see what would change before applying
+// it. The result is persisted exactly like saveXEpgMapping and one XEPG
+// rebuild runs under the same single-flight scan guard.
 func autoFillBackups(request RequestStruct) (message string, err error) {
 
-	var overwrite = len(request.Options) > 0 && request.Options[0] == "overwrite"
+	var overwrite = indexOfString("overwrite", request.Options) != -1
+	var dryRun = indexOfString("dryrun", request.Options) != -1
 
 	xepgLock.Lock()
 
@@ -80,12 +150,26 @@ func autoFillBackups(request RequestStruct) (message string, err error) {
 
 		var raw, ok = Data.XEPG.Channels[id].(map[string]interface{})
 		if ok == false {
-			continue
+
+			// A rebuild stores channels as structs, while a freshly loaded
+			// xepg.json yields maps. Convert once so there is a map to write
+			// back into (and keep it, so the rest of the app reads the same
+			// entry). Without this, auto-fill silently found no channel at all
+			// after any guide rebuild.
+			var converted map[string]interface{}
+			if jsonErr := json.Unmarshal(channelBytes, &converted); jsonErr != nil || converted == nil {
+				continue
+			}
+
+			raw = converted
+			Data.XEPG.Channels[id] = raw
+
 		}
 
 		var entry = &autoBackupChannel{
 			id:      id,
 			name:    name,
+			display: xepgChannel.XName,
 			url:     xepgChannel.URL,
 			raw:     raw,
 			source:  xepgChannel.FileM3UID,
@@ -98,6 +182,8 @@ func autoFillBackups(request RequestStruct) (message string, err error) {
 	}
 
 	var updated int
+	var updatedSlots int
+	var samples []string
 	var filledGroups, singleProviderGroups, alreadyFull int
 
 	for _, group := range byName {
@@ -173,6 +259,16 @@ func autoFillBackups(request RequestStruct) (message string, err error) {
 			if filled > 0 {
 
 				updated++
+				updatedSlots += filled
+
+				// A preview reports the plan (with a few examples in the log)
+				// and stops here, leaving the database untouched.
+				if dryRun == true {
+					if len(samples) < 10 {
+						samples = append(samples, fmt.Sprintf("%s <- %s", target.display, target.backups[emptySlots[0]]))
+					}
+					continue
+				}
 
 				// Write back into the raw channel map (maps are reference
 				// types, so target.raw IS the map stored in the database).
@@ -204,6 +300,19 @@ func autoFillBackups(request RequestStruct) (message string, err error) {
 		return
 	}
 
+	if dryRun == true {
+
+		xepgLock.Unlock()
+
+		for _, sample := range samples {
+			showInfo("Backup preview:" + sample)
+		}
+
+		message = fmt.Sprintf("Dry run: would fill %d backup slot(s) on %d channel(s) from other providers. Nothing was saved.", updatedSlots, updated)
+
+		return
+	}
+
 	// Persist a deep copy of the channel database, exactly like
 	// saveXEpgMapping does, then swap the parsed map in.
 	var toSave = make(map[string]interface{})
@@ -224,6 +333,59 @@ func autoFillBackups(request RequestStruct) (message string, err error) {
 	triggerXEPGRebuild()
 
 	message = fmt.Sprintf("Backup slots filled on %d channel(s) from other providers.", updated)
+
+	return
+}
+
+// backupCoverage counts the active channels that have at least one backup
+// configured, so the dashboard can show how much of the lineup can actually
+// fail over. Handles both stored shapes (a rebuild writes structs, a loaded
+// xepg.json yields maps) without a JSON round-trip, so it is cheap enough for
+// a dashboard response.
+func backupCoverage() (withBackups, active int) {
+
+	xepgLock.Lock()
+	defer xepgLock.Unlock()
+
+	for _, value := range Data.XEPG.Channels {
+
+		var hasBackup bool
+
+		switch channel := value.(type) {
+
+		case map[string]interface{}:
+
+			if isActive, _ := channel["x-active"].(bool); isActive == false {
+				continue
+			}
+			active++
+
+			for _, slot := range backupSlots {
+				if backup, _ := channel[slot].(string); len(backup) > 0 {
+					hasBackup = true
+					break
+				}
+			}
+
+		case XEPGChannelStruct:
+
+			if channel.XActive == false {
+				continue
+			}
+			active++
+
+			hasBackup = len(channel.XBackupChannel1) > 0 || len(channel.XBackupChannel2) > 0 || len(channel.XBackupChannel3) > 0
+
+		default:
+			continue
+
+		}
+
+		if hasBackup {
+			withBackups++
+		}
+
+	}
 
 	return
 }

@@ -406,6 +406,10 @@ func createXEPGDatabase() (err error) {
 			// Streaming URL aktualisieren
 			xepgChannel.URL = m3uChannel.URL
 
+			// Per-stream directives come straight from the provider's M3U, so
+			// they are refreshed on every rebuild just like the URL.
+			xepgChannel.XDirectives = m3uChannel.XDirectives
+
 			// Name aktualisieren, anhand des Names wird überprüft ob der Kanal noch in einer Playlist verhanden. Funktion: cleanupXEPG
 			xepgChannel.Name = m3uChannel.Name
 
@@ -439,6 +443,7 @@ func createXEPGDatabase() (err error) {
 			newChannel.TvgLogo = m3uChannel.TvgLogo
 			newChannel.TvgName = m3uChannel.TvgName
 			newChannel.URL = m3uChannel.URL
+			newChannel.XDirectives = m3uChannel.XDirectives
 			newChannel.XmltvFile = ""
 			newChannel.XMapping = ""
 

@@ -203,6 +203,10 @@ type XEPGChannelStruct struct {
 	XBackupChannel1    string `json:"x-backup-channel-1,omitempty"`
 	XBackupChannel2    string `json:"x-backup-channel-2,omitempty"`
 	XBackupChannel3    string `json:"x-backup-channel-3,omitempty"`
+	// XDirectives carries the provider's per-stream directives (#KODIPROP,
+	// #EXTVLCOPT, #EXTHTTP, ...) verbatim, newline separated, so they can be
+	// emitted again in the M3U this instance serves.
+	XDirectives string `json:"x-directives,omitempty"`
 }
 
 // M3UChannelStructXEPG : M3U Struktur für XEPG
@@ -219,6 +223,9 @@ type M3UChannelStructXEPG struct {
 	UUIDKey     string `json:"_uuid.key,required"`
 	UUIDValue   string `json:"_uuid.value,required"`
 	Values      string `json:"_values,required"`
+	// XDirectives is the provider's per-stream directives, newline separated
+	// (see XEPGChannelStruct.XDirectives).
+	XDirectives string `json:"_directives,omitempty"`
 }
 
 // FilterStruct : Filter Struktur
@@ -296,11 +303,13 @@ type SettingsStruct struct {
 	LogEntriesRAM             int                   `json:"log.entries.ram"`
 	M3U8AdaptiveBandwidthMBPS int                   `json:"m3u8.adaptive.bandwidth.mbps"`
 	MappingFirstChannel       float64               `json:"mapping.first.channel"`
+	PlexChannelLimit          int                   `json:"plex.channel.limit"`
 	Port                      string                `json:"port"`
 	SourceCheckInterval       int                   `json:"source.check.interval"`
 	SSDP                      bool                  `json:"ssdp"`
 	TempPath                  string                `json:"temp.path"`
 	Tuner                     int                   `json:"tuner"`
+	UnfilteredChannelLimit    int                   `json:"unfiltered.channel.limit"`
 	Update                    []string              `json:"update"`
 	UserAgent                 string                `json:"user.agent"`
 	UUID                      string                `json:"uuid"`

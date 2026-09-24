@@ -74,10 +74,19 @@ function checkSources() {
 // channel's empty backup slots with the same channel from other providers.
 // The server replies with a summary (filled count or why nothing was filled)
 // that the dashboard shows as a toast; a guide rebuild runs automatically.
-function autoFillBackups(overwrite) {
+// With dryRun the server only reports the plan - nothing is saved - so the
+// result can be inspected before it is applied.
+function autoFillBackups(overwrite, dryRun) {
     var request = new Object();
+    var options = [];
     if (overwrite == true) {
-        request["options"] = ["overwrite"];
+        options.push("overwrite");
+    }
+    if (dryRun == true) {
+        options.push("dryrun");
+    }
+    if (options.length > 0) {
+        request["options"] = options;
     }
     var server = new Server("autoFillBackups");
     server.request(request);

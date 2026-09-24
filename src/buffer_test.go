@@ -14,6 +14,9 @@ func setActiveConnections(t *testing.T, busy map[string]int) {
 
 	t.Helper()
 
+	// A cached probe from another test must never decide this one.
+	resetStreamProbeCache()
+
 	var keys []string
 
 	for streamURL, connections := range busy {
@@ -35,6 +38,8 @@ func setActiveConnections(t *testing.T, busy map[string]int) {
 
 func TestResolveReachableStreamURLPrefersWorkingPrimary(t *testing.T) {
 
+	resetStreamProbeCache()
+
 	primary := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -54,6 +59,8 @@ func TestResolveReachableStreamURLPrefersWorkingPrimary(t *testing.T) {
 }
 
 func TestResolveReachableStreamURLFallsBackToFirstWorkingBackup(t *testing.T) {
+
+	resetStreamProbeCache()
 
 	deadPrimary := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
@@ -84,6 +91,8 @@ func TestResolveReachableStreamURLFallsBackToFirstWorkingBackup(t *testing.T) {
 }
 
 func TestResolveReachableStreamURLFallsBackToPrimaryWhenNothingWorks(t *testing.T) {
+
+	resetStreamProbeCache()
 
 	deadPrimary := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)

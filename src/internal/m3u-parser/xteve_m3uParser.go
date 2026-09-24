@@ -24,10 +24,26 @@ func MakeInterfaceFromM3U(byteStream []byte) (allChannels []interface{}, err err
 
 		var lines = strings.Split(strings.Replace(channel, "\r\n", "\n", -1), "\n")
 
+		// Per-stream directives, kept in the order the provider wrote them.
+		var streamDirectives []string
+
 		// Zeilen mit # und leerer Zeilen entfernen
 		for i := len(lines) - 1; i >= 0; i-- {
 
 			if len(lines[i]) == 0 || lines[i][0:1] == "#" {
+
+				// Everything from # on belongs to this stream and is not part
+				// of the channel's identity: #KODIPROP (DRM / clearkey keys),
+				// #EXTVLCOPT (per-stream player options such as a required
+				// user agent), #EXTHTTP (custom request headers), #EXTGRP and
+				// friends. They are collected here so the M3U xTeVe Reborn
+				// serves can carry them through to M3U players (Kodi,
+				// TiviMate, VLC). The loop runs backwards, so prepending keeps
+				// the provider's order.
+				if directive := strings.TrimSpace(lines[i]); strings.HasPrefix(directive, "#") {
+					streamDirectives = append([]string{directive}, streamDirectives...)
+				}
+
 				lines = append(lines[:i], lines[i+1:]...)
 			}
 
@@ -138,6 +154,10 @@ func MakeInterfaceFromM3U(byteStream []byte) (allChannels []interface{}, err err
 
 			}
 
+		}
+
+		if len(streamDirectives) > 0 {
+			stream["_directives"] = strings.Join(streamDirectives, "\n")
 		}
 
 		return

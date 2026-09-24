@@ -38,6 +38,11 @@ func maintenance() {
 			go runSourceCheck()
 		}
 
+		// Keep the Xtream account status (max_connections / active_cons) warm, so
+		// source selection has it before the first play of a channel rather than
+		// only after one. No-op while the cached answer is still fresh.
+		providerCapacityMaybeStale()
+
 		// Update xTeVe (Binary)
 		if System.TimeForAutoUpdate == t.Format("1504") {
 			go BinaryUpdate()

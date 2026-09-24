@@ -423,6 +423,16 @@
       "title": "Check sources for changes every (minutes)",
       "description": "Between the scheduled updates above, each playlist and XMLTV source is checked this often, and the guide is rebuilt only if a source's content actually changed. A check that finds nothing new is one small request per source (servers that support ETag / Last-Modified answer without resending the file). Set to 0 to turn off. Minimum 5."
     },
+    "plexChannelLimit":
+    {
+      "title": "Plex channel limit",
+      "description": "How many active channels xTeVe Reborn expects Plex to accept. Plex gets unreliable well before 1000 channels, so leave this at 480 unless you do not use Plex. Warnings appear when the number of active channels goes above it; nothing is blocked."
+    },
+    "unfilteredChannelLimit":
+    {
+      "title": "Unfiltered channel limit",
+      "description": "How many streams may be active automatically while no filter is configured. Above this, nothing is activated until you add a filter, which is why a large Jellyfin or Emby lineup can look empty: raise this (or add a filter) to activate it all at once."
+    },
     "unsaved":
     {
       "message": "You have unsaved changes",

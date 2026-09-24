@@ -150,6 +150,44 @@ are the per-change detail, including how each fix was verified, and
 
 ---
 
+## What's new in 3.0.4
+
+Released as `v3.0.4` — a drop-in upgrade from 3.0.x. New settings get their defaults on first start,
+and the XEPG database gains one field on its next rebuild: no migration step.
+
+**Provider directives survive into the M3U this instance serves.** `#KODIPROP`,
+`#EXTVLCOPT`, `#EXTHTTP`, `#EXTGRP` and any other per-stream directive a provider writes are now
+parsed and re-emitted between a channel's `#EXTINF` and its URL. That is how a provider-mandated user
+agent, custom request headers, or Widevine/clearkey DRM metadata reaches Kodi, TiviMate and VLC.
+Plex, Emby and Jellyfin ignore these lines entirely — they are for M3U clients, and only in
+no-buffer mode (a buffered re-stream re-produces the video, which drops DRM).
+
+**Source selection now knows the provider's own account limit.** For Xtream Codes providers the
+account status (`max_connections`, `active_cons`) is read in the background and folded into backup
+selection: a source on an account that is full elsewhere is no longer treated as idle, and between
+equally loaded sources the one with more free connections wins. Providers that don't expose it are
+unchanged.
+
+**Failover probing is cached for 15 seconds.** A channel with backups probes up to four URLs to pick
+one; that is now at most one probe per source per 15s instead of one per play request, so popular
+channels stop re-probing every upstream for every viewer.
+
+**The dashboard shows whether failover can work at all.** `Backups on: 812 of 1200` counts active
+channels with at least one backup configured, and `Sources: 3 ok` / `1 failing (Provider X)`
+summarises the last check of every playlist and XMLTV source.
+
+**Channel thresholds are settings now, not constants.** `plex.channel.limit` and
+`unfiltered.channel.limit` (480 by default) are editable in Settings. Nothing above the unfiltered
+limit activates automatically until a filter exists — which is why a large Jellyfin or Emby lineup
+could look empty — so that is now a field to raise instead of a reason to write a dummy filter.
+
+**Fixed: auto-fill backups silently did nothing after a guide rebuild.** The channel database holds
+structs after a rebuild and maps after loading `xepg.json`, and auto-fill only understood maps, so it
+skipped every channel and reported that nothing was there to fill. It now handles both. Auto-fill
+also matches channel names tolerantly (`HD`, `FHD`, `(Backup)`, `-`/`_` separators) while keeping
+numbered and time-shifted channels apart, and gained a **Preview backups** action that reports what
+it would change without saving anything.
+
 ## What's new in 3.0.3
 
 #### Backup channels that share the load
@@ -661,5 +699,11 @@ MIT — see [`LICENSE`](LICENSE), inherited unchanged from upstream xTeVe.
   matched by name — adapted here as the dashboard's "Fill backups from other providers" action. Their tuner
   ([@c0y0t3d3n](https://github.com/c0y0t3d3n)) targets Plex with provider-side EPG and no XMLTV; both ideas
   port cleanly to xTeVe Reborn's XMLTV-based, M3U-driven failover.
+* [chtugha/xTeVe-dietpi](https://github.com/chtugha/xTeVe-dietpi) — pointed at by a user as a
+  fork worth borrowing from. Nothing in it turned out to be missing here (its updater, manual update
+  button, CLI flags, salted hashing and cookie hardening are all in this tree), but checking its
+  "restreaming" fix is what surfaced the dead `Content-Length` sets in the buffered send path, and
+  the per-stream metadata their own private build added is where 3.0.4's `#KODIPROP`/`#EXTVLCOPT`
+  passthrough started.
 * [Threadfin](https://github.com/Threadfin/Threadfin) — backup/failover channels and Jellyfin support.
 * [xTeVe](https://github.com/xteve-project/xTeVe) — the original project, by [saroxan](https://github.com/saroxan).
