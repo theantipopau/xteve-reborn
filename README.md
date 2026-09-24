@@ -505,7 +505,7 @@ No settings or data format changes — safe to drop in over an existing install 
   channel lineup or a playable stream — those need a real provider source — so please open an
   issue if you hit anything Jellyfin-specific.
 
---- 
+---
 
 ## Features
 
@@ -594,7 +594,7 @@ Including:
 - Zap2XML: Perl based zap2it XMLTV grabber  
 - Bash: A Unix / Linux shell  
 - Crond: Daemon to execute scheduled commands  
-- Perl: Programming language   
+- Perl: Programming language
 
 ---
 
@@ -608,4 +608,10 @@ Including:
 go build .
 ```
 
+See [`README-DEV.md`](README-DEV.md) for build/test commands, the generated-artifact rules, and
+the project's conventions if you're contributing.
+
 ---
+
+## License
+MIT — see [`LICENSE`](LICENSE), inherited unchanged from upstream xTeVe.
