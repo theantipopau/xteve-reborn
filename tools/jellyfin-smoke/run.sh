@@ -114,31 +114,41 @@ info "Jellyfin up: $(curl -fsS "http://127.0.0.1:${JF_PORT}/System/Info/Public" 
 # ---------------------------------------------------------------------------
 info "completing Jellyfin's startup wizard"
 # Jellyfin answers /System/Info/Public well before its startup wizard is usable:
-# on a cold container the first POSTs come back HTTP 500 while it is still
+# on a cold container the first requests come back HTTP 500 while it is still
 # creating its database, which is exactly what the first real run of this
-# workflow hit. Retry each step rather than treating the first response as
-# final, and dump the container log if one never succeeds - otherwise a
-# failure here is a bare "500" with no way to tell why.
-jf_post() {
-  local path="$1"; shift
+# workflow hit. Retry rather than treating the first response as final, and
+# dump the container log if a step never succeeds - otherwise a failure here is
+# a bare "500" with no way to tell what went wrong.
+jf_retry() {
+  local method="$1"
+  local path="$2"
   local attempt
+  shift 2
   for attempt in $(seq 1 20); do
-    if curl -fsS -X POST "http://127.0.0.1:${JF_PORT}${path}" \
+    if curl -fsS -X "$method" "http://127.0.0.1:${JF_PORT}${path}" \
       -H 'Content-Type: application/json' "$@" >/dev/null 2>&1; then
       return 0
     fi
     sleep 3
   done
   docker logs "$JF_CONTAINER" >&2 || true
-  fail "POST ${path} never succeeded against Jellyfin"
+  fail "${method} ${path} never succeeded against Jellyfin"
 }
 
-jf_post /Startup/Configuration \
+jf_retry POST /Startup/Configuration \
   -d '{"UICulture":"en-US","MetadataCountryCode":"US","PreferredMetadataLanguage":"en"}'
-jf_post /Startup/User -d '{"Name":"admin","Password":"admin"}'
-jf_post /Startup/RemoteAccess \
+
+# The GET is load-bearing, not a read: POST /Startup/User updates the *first*
+# user, but on a brand-new server no user exists yet, and it is GET
+# /Startup/User that runs userManager.InitializeAsync() and creates one.
+# Jellyfin's own source marks that endpoint "TODO: Remove this method when
+# startup wizard no longer requires an existing user." Skip it and the POST
+# throws "Sequence contains no elements" and answers 500.
+jf_retry GET /Startup/User
+jf_retry POST /Startup/User -d '{"Name":"admin","Password":"admin"}'
+jf_retry POST /Startup/RemoteAccess \
   -d '{"EnableRemoteAccess":true,"EnableAutomaticPortMapping":false}'
-jf_post /Startup/Complete
+jf_retry POST /Startup/Complete
 
 AUTH_BASE='MediaBrowser Client="xteve-reborn-smoke", Device="ci", DeviceId="xteve-reborn-smoke", Version="1.0"'
 
