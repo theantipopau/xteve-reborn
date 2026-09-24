@@ -144,6 +144,18 @@ func Index(w http.ResponseWriter, r *http.Request) {
 	return
 }
 
+// rewriteMulticastThroughUDPxy turns a multicast 'udp://@host:port' stream URL
+// into an HTTP URL served through the configured UDPxy relay. Anything that is
+// not multicast is returned unchanged.
+func rewriteMulticastThroughUDPxy(streamURL string) string {
+
+	if strings.HasPrefix(streamURL, "udp://@") {
+		return fmt.Sprintf("http://%s/udp/%s/", Settings.UDPxy, strings.TrimPrefix(streamURL, "udp://@"))
+	}
+
+	return streamURL
+}
+
 // Stream : Web Server /stream/
 func Stream(w http.ResponseWriter, r *http.Request) {
 
@@ -159,10 +171,17 @@ func Stream(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If an UDPxy host is set, and the stream URL is multicast (i.e. starts with 'udp://@'),
-	// then streamInfo.URL needs to be rewritten to point to UDPxy.
-	if Settings.UDPxy != "" && strings.HasPrefix(streamInfo.URL, "udp://@") {
-		streamInfo.URL = fmt.Sprintf("http://%s/udp/%s/", Settings.UDPxy, strings.TrimPrefix(streamInfo.URL, "udp://@"))
+	// If an UDPxy host is set, every multicast stream URL (i.e. 'udp://@...')
+	// is rewritten to HTTP through UDPxy before anything else happens - the
+	// channel's backup URLs included, so that whichever source selection picks
+	// is both probeable (udp:// is not) and directly playable by the client.
+	// Previously only the primary was rewritten, so a chosen backup could
+	// bypass UDPxy entirely or be handed to the client as a udp:// URL.
+	if Settings.UDPxy != "" {
+		streamInfo.URL = rewriteMulticastThroughUDPxy(streamInfo.URL)
+		streamInfo.BackupURL1 = rewriteMulticastThroughUDPxy(streamInfo.BackupURL1)
+		streamInfo.BackupURL2 = rewriteMulticastThroughUDPxy(streamInfo.BackupURL2)
+		streamInfo.BackupURL3 = rewriteMulticastThroughUDPxy(streamInfo.BackupURL3)
 	}
 
 	// Only channels with at least one backup configured pay for the

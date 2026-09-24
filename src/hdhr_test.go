@@ -158,6 +158,51 @@ func TestStreamUnknownIDIs404(t *testing.T) {
 	}
 }
 
+// With UDPxy configured, multicast primaries AND multicast backups must be
+// rewritten to HTTP through the relay before source selection - whichever
+// source wins, the client gets a playable URL and the reachability probe has
+// something it can actually probe. Regression: only the primary used to be
+// rewritten, so a chosen udp:// backup bypassed UDPxy entirely.
+func TestStreamUDPxyRewritesMulticastPrimaryAndBackups(t *testing.T) {
+
+	setupTunerTest(t)
+
+	// A fake UDPxy relay: the primary's multicast address is "down" (404),
+	// every other address serves. If the backup was rewritten correctly, the
+	// probe reaches the relay and failover to it succeeds through UDPxy.
+	var udpxy = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasSuffix(r.URL.Path, "239.1.1.1:5000/") {
+			w.WriteHeader(http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer udpxy.Close()
+
+	Settings.UDPxy = strings.TrimPrefix(udpxy.URL, "http://")
+
+	setChannels(map[string]interface{}{
+		"x-ID.0": channel("Sat", "1000", "udp://@239.1.1.1:5000", true, "udp://@239.1.1.2:5000"),
+	})
+
+	var lineup []LineupStream
+	if err := json.Unmarshal(get(t, Index, "/lineup.json").Body.Bytes(), &lineup); err != nil {
+		t.Fatal(err)
+	}
+
+	var streamPath = strings.TrimPrefix(lineup[0].URL, "http://tuner.local:34400")
+	var w = get(t, Stream, streamPath)
+
+	if w.Code != http.StatusFound {
+		t.Fatalf("status %d, want 302", w.Code)
+	}
+
+	var location = w.Header().Get("Location")
+	if location != "http://"+Settings.UDPxy+"/udp/239.1.1.2:5000/" {
+		t.Errorf("Location = %q, want the multicast BACKUP rewritten through UDPxy and selected", location)
+	}
+}
+
 // TestStreamFailsOverToBackup: a channel whose primary provider is down
 // should be redirected to its first reachable backup.
 func TestStreamFailsOverToBackup(t *testing.T) {
