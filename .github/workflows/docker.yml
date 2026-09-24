@@ -66,6 +66,18 @@ jobs:
           test "$uid" = "1000"
           test "$(docker exec smoke stat -c %u /config/settings.json)" = "1000"
 
+          # Docker's own verdict, not just our curls: the HEALTHCHECK
+          # (interval 30s, start-period 20s, 3 retries) must reach healthy -
+          # it serves the same /discover.json, so this proves the binary is
+          # serving on the configured port from inside the container too.
+          for i in $(seq 1 18); do
+            status="$(docker inspect --format '{{.State.Health.Status}}' smoke)"
+            [ "$status" = "healthy" ] && break
+            sleep 5
+          done
+          docker inspect --format '{{json .State.Health}}' smoke
+          test "$(docker inspect --format '{{.State.Health.Status}}' smoke)" = "healthy"
+
       # Only log in and push on an actual release tag - PRs and ordinary
       # pushes to main just build and smoke-test, without publishing a
       # "latest" image for every commit.

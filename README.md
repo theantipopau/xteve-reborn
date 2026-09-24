@@ -17,6 +17,10 @@ Updates come from this repo's own GitHub releases, never upstream's binaries: th
 newer release daily and shows an "Update available" banner, and can install it (checksum-verified)
 with one click or automatically if you turn that on in Settings.
 
+There is a small project website with a quick start at
+**[theantipopau.github.io/xteve-reborn](https://theantipopau.github.io/xteve-reborn/)**
+(served from [`docs/`](docs/) — edit `docs/index.html` to change it).
+
 ---
 
 ## Highlights: what this fork fixes or adds over upstream xTeVe

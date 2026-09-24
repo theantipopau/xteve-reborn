@@ -42,6 +42,33 @@ least-loaded paths, plus the reachability checks); gofmt/vet/build clean; full s
 backup URLs equal to the primary are skipped, but same-channel-different-URL dedup across playlists is
 left to the operator.
 
+### UDPxy rewrite now covers backups too
+
+With an UDPxy relay configured, only the channel's primary URL was rewritten from `udp://@...` to HTTP
+through the relay — a backup selected on failover could bypass UDPxy entirely, and udp:// URLs cannot be
+probed for reachability anyway. All candidate URLs (primary + backups) are now rewritten before source
+selection, so whichever source wins is both probeable and directly playable by the client.
+
+**Verified:** new end-to-end test drives `Stream` with a fake UDPxy relay whose primary address 404s and
+backup serves: the tuner must fail over *through the relay* for the test to pass.
+
+### Docker CI asserts the container reaches `healthy`
+
+The Docker workflow built and started the image but never checked Docker's own verdict. The smoke test
+now polls `docker inspect .State.Health.Status` until it reports `healthy` (with a generous budget sized
+after the HEALTHCHECK's interval/start-period/retries) and fails the job otherwise.
+
+### Project website on GitHub Pages
+
+A single static page at `docs/index.html` — no framework, no build step, self-contained (the logo is
+embedded as a data URI) — with a hero, feature cards, a three-step quick start, and credits. Rendered in
+the brand palette sampled from `branding/reborn-logo-source.png` (#00d5fe cyan on near-black navy), light
+and dark schemes follow the OS. The README links it and the repo homepage points at it.
+
+**Verified:** rendered in the built-in browser at mobile and desktop widths in both color schemes (logo
+loads, cards grid, quick start, no broken images). **Not verified in CI:** Pages publishing itself is a
+repo setting, not a workflow.
+
 ---
 
 ## 3.0.2 — published, then corrected; and the Jellyfin workflow's first real run
