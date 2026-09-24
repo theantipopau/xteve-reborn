@@ -35,6 +35,10 @@ JF_CONFIG="$(mktemp -d)"
 JF_CACHE="$(mktemp -d)"
 APP_PID=""
 
+# The image may drop to a non-root user at startup; make sure it can write its
+# own config and cache whichever uid it ends up as.
+chmod 777 "$JF_CONFIG" "$JF_CACHE"
+
 info() { echo "==> $*"; }
 fail() { echo "FAIL: $*" >&2; exit 1; }
 
@@ -109,16 +113,32 @@ info "Jellyfin up: $(curl -fsS "http://127.0.0.1:${JF_PORT}/System/Info/Public" 
 # 3. Complete Jellyfin's startup wizard (it refuses API work before this).
 # ---------------------------------------------------------------------------
 info "completing Jellyfin's startup wizard"
-curl -fsS -X POST "http://127.0.0.1:${JF_PORT}/Startup/Configuration" \
-  -H 'Content-Type: application/json' \
-  -d '{"UICulture":"en-US","MetadataCountryCode":"US","PreferredMetadataLanguage":"en"}' >/dev/null
-curl -fsS -X POST "http://127.0.0.1:${JF_PORT}/Startup/User" \
-  -H 'Content-Type: application/json' \
-  -d '{"Name":"admin","Password":"admin"}' >/dev/null
-curl -fsS -X POST "http://127.0.0.1:${JF_PORT}/Startup/RemoteAccess" \
-  -H 'Content-Type: application/json' \
-  -d '{"EnableRemoteAccess":true,"EnableAutomaticPortMapping":false}' >/dev/null
-curl -fsS -X POST "http://127.0.0.1:${JF_PORT}/Startup/Complete" >/dev/null
+# Jellyfin answers /System/Info/Public well before its startup wizard is usable:
+# on a cold container the first POSTs come back HTTP 500 while it is still
+# creating its database, which is exactly what the first real run of this
+# workflow hit. Retry each step rather than treating the first response as
+# final, and dump the container log if one never succeeds - otherwise a
+# failure here is a bare "500" with no way to tell why.
+jf_post() {
+  local path="$1"; shift
+  local attempt
+  for attempt in $(seq 1 20); do
+    if curl -fsS -X POST "http://127.0.0.1:${JF_PORT}${path}" \
+      -H 'Content-Type: application/json' "$@" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 3
+  done
+  docker logs "$JF_CONTAINER" >&2 || true
+  fail "POST ${path} never succeeded against Jellyfin"
+}
+
+jf_post /Startup/Configuration \
+  -d '{"UICulture":"en-US","MetadataCountryCode":"US","PreferredMetadataLanguage":"en"}'
+jf_post /Startup/User -d '{"Name":"admin","Password":"admin"}'
+jf_post /Startup/RemoteAccess \
+  -d '{"EnableRemoteAccess":true,"EnableAutomaticPortMapping":false}'
+jf_post /Startup/Complete
 
 AUTH_BASE='MediaBrowser Client="xteve-reborn-smoke", Device="ci", DeviceId="xteve-reborn-smoke", Version="1.0"'
 
