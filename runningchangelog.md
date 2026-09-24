@@ -12,7 +12,17 @@ being worked on), and say plainly what has *not* been verified yet.
 
 ---
 
-## 3.0.4 — in progress
+## 3.0.4 — released
+
+Tagged `v3.0.4` on `1b1b3ce`, published by the release workflow with all six assets and marked
+*Latest* (so `releases/latest` and the in-app updater both resolve to it). Verified from the
+published assets, not just from CI: `sha256sum -c` passes for the Windows zip, its only zip-root
+entry is `xteve-reborn.exe`, and that binary carries `3.0.4.0304` plus `v3.0.4` (the `-ldflags`
+`ReleaseTag` it upgrades against). Release body matches `tools/release/notes-v3.0.4.md` byte for
+byte. On `main` before tagging, all four workflows were green — CI ran gofmt, vet, build, `go test`
+**and `go test -race`** plus the embedded-bundle drift check, the Jellyfin workflow's containerised
+end-to-end check passed, Docker's container health assertion passed, and Pages deployed the updated
+site. The multi-arch `ghcr.io/theantipopau/xteve-reborn:v3.0.4` image built and pushed from the tag.
 
 ### Per-stream directive passthrough (#KODIPROP, #EXTVLCOPT, #EXTHTTP)
 
@@ -38,6 +48,9 @@ serves emitted only its own `#EXTINF`. Now:
   file on every rebuild like the URL — no database migration, existing `xepg.json` entries just gain the
   field.
 - `buildM3U` emits the directives between the channel's `#EXTINF` and its stream URL.
+
+The parser test asserts order and that directives never leak into `_values` (which drives filters), and
+the M3U test asserts the exact line placement plus that a channel without directives is unchanged.
 
 That is what gets a provider-mandated `http-user-agent` (`#EXTVLCOPT`) or `#EXTHTTP` headers to
 Kodi/TiviMate/VLC, and what carries `#KODIPROP` licence metadata for DRM. Plex, Emby and Jellyfin parse
@@ -72,8 +85,10 @@ be handed straight back out.
 
 **Verified:** new `provider_capacity_test.go` (Xtream URL detection, quoted and numeric `user_info`
 parsing, unknown providers, capacity-aware selection with a saturated account, avoiding a full provider)
-and the 7 existing failover tests still green. **Not verified:** against a real Xtream account; the
-capacity refresh is lazy only (no maintenance-loop hook yet).
+and the 7 existing failover tests still green. **Not verified:** against a real Xtream account. The
+freshness gap was closed before release: the maintenance loop (60s tick) now calls
+`providerCapacityMaybeStale()`, so the account status is warm before the first play of a channel
+rather than only after one.
 
 ### Channel thresholds are settings; dashboard shows failover coverage and source health
 
@@ -88,7 +103,11 @@ The dashboard gained `Backups on: N of M` (active channels with at least one bac
 stored shapes with no JSON round-trip) and `Sources: 3 ok` / `1 failing (name)`, from a new per-source
 status recorded on every provider fetch and source check.
 
-**Verified:** build, full suite, gofmt clean; bundle regenerated. **Not verified:** in a browser.
+**Verified:** build, full suite, gofmt clean; bundle regenerated; a live instance was started and
+served `/web/js/settings_ts.js` with both new labels rendered (31.6 KB, no unresolved placeholders),
+and the new template test covers every UI file. **Not verified:** the dashboard itself could not be
+rendered end-to-end without completing the first-run wizard, so the two new stat fields are covered
+by the code path and the id-binding only.
 
 ### Fixed: auto-fill backups skipped every channel after a rebuild
 
@@ -107,7 +126,7 @@ memory or disk).
 
 ---
 
-## 3.0.3 — the rest of what shipped in it
+## 3.0.3 — released
 
 ### Load-aware backup selection (idea credited to c0y0t3d3n/iptv)
 
@@ -166,7 +185,7 @@ repo setting, not a workflow.
 
 ---
 
-## 3.0.3 — released
+## 3.0.3 — tag, assets and CI
 
 Tagged `v3.0.3` on `97fbbdc` and published by the release workflow with all six assets (checksums
 verified, zip roots correct, binaries carry `3.0.3.0303`). The Jellyfin workflow's first phase-2 run
