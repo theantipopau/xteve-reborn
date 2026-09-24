@@ -71,6 +71,51 @@ repo setting, not a workflow.
 
 ---
 
+## Unreleased → 3.0.3
+
+### Auto-fill backup channels across providers (bulk action)
+
+The other half of the c0y0t3d3n/iptv idea, adapted to this app's model: the dashboard's XEPG Channels
+card now has **"Fill backups from other providers"** and **"Rebuild backups"** actions. The backend
+(`autoFillBackups`, `src/autobackup.go`) groups active channels by normalised name (case/whitespace
+-insensitive), and for every name carried by **two or more providers** fills each channel's empty backup
+slots with the other providers' URLs: at most one backup per provider, never the channel's own URL, never
+duplicating a configured backup, deterministic order. "Rebuild" (with confirm) rebuilds all three slots of
+multi-provider channels from scratch, replacing manually-entered ones. The result is saved exactly like a
+mapping save and one XEPG rebuild runs through the same single-flight scan guard (`triggerXEPGRebuild`,
+extracted from `saveXEpgMapping` - identical behavior, now shared). When nothing can be filled, the toast
+says why (single-provider names, no shared names, or already-full slots).
+
+**Verified:** 6 unit tests (both directions, existing backups preserved, same-provider never used,
+overwrite, inactive/unnamed skipped, save+swap under a running rebuild); full suite green. **Not
+verified:** against real multi-provider playlists - names that differ between providers ("BBC One" vs
+"BBC1") deliberately do NOT match; matching is exact after case/trim only.
+
+### Jellyfin E2E now covers a populated lineup and the stream chain
+
+Phase 2 of `tools/jellyfin-smoke/run.sh` (local run validated end to end minus Jellyfin itself, which
+needs Docker): a fake M3U provider (python3 http.server, zero dependencies) serves one channel whose
+stream is real MPEG-TS bytes; the provider is seeded into the app's generated `settings.json` (the
+schema the app itself writes - no guessed format), the app restarts, downloads and builds the database,
+and the assertions follow: lineup populated with the right GuideName/GuideNumber/stream-URL shape,
+`/stream/<id>` redirecting to the provider URL, and those bytes actually served (MPEG-TS sync bytes
+verified). Jellyfin is then asked to refresh and must import the channel. The seeding step uses python3
+(not jq) for the settings edit and runs the provider server itself, so CI needs nothing new. **Not
+covered (deliberately):** Jellyfin's own playback/transcode of the bytes - that tests Jellyfin's ffmpeg,
+not this app.
+
+**Verified locally:** app started with empty config (phase 1 assertions), provider seeded, second start
+showed `All streams: 1 / Active: 1`, `/lineup.json` carried Smoke Channel with a `/stream/` URL, the
+redirect hit the fake provider and returned 0x47-filled TS packets.
+
+### Also in this release
+
+- Load-aware backup selection and the UDPxy backup fix (see the previous entry) ship in 3.0.3.
+- The project website went live (see above), and Docker CI asserts the HEALTHCHECK reaches `healthy`.
+- Xtream Codes account status is scoped in issue #1 - not in this release.
+
+---
+
 ## 3.0.2 — published, then corrected; and the Jellyfin workflow's first real run
 
 ### Release and push

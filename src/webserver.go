@@ -530,6 +530,9 @@ func WS(w http.ResponseWriter, r *http.Request) {
 		case "saveEpgMapping":
 			err = saveXEpgMapping(request)
 
+		case "autoFillBackups":
+			response.Alert, err = autoFillBackups(request)
+
 		case "saveUserData":
 			err = saveUserData(request)
 			if err == nil {

@@ -70,6 +70,18 @@ function checkSources() {
     var server = new Server("checkSources");
     server.request(new Object());
 }
+// autoFillBackups offers the server-side bulk action that fills every
+// channel's empty backup slots with the same channel from other providers.
+// The server replies with a summary (filled count or why nothing was filled)
+// that the dashboard shows as a toast; a guide rebuild runs automatically.
+function autoFillBackups(overwrite) {
+    var request = new Object();
+    if (overwrite == true) {
+        request["options"] = ["overwrite"];
+    }
+    var server = new Server("autoFillBackups");
+    server.request(request);
+}
 // showToast replaces the old native alert() popups, which block the whole
 // page until dismissed and look jarring next to the rest of the UI. Errors
 // stay up longer than informational messages since they're more likely to

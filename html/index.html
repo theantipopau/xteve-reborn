@@ -75,6 +75,8 @@
             <div class="stat">
               <span class="stat-label">XEPG Channels</span>
               <span class="stat-value" id="xepg">&nbsp;</span>
+              <span class="stat-action" onclick="javascript: autoFillBackups(false);" title="Fill empty backup slots with the same channel from other providers">Fill backups from other providers</span>
+              <span class="stat-action" onclick="javascript: if (confirm('Rebuild ALL backup slots of channels carried by several providers? Custom backups you entered manually are replaced.')) autoFillBackups(true);" title="Rebuild all backup slots for multi-provider channels">Rebuild backups</span>
             </div>
             <div class="stat">
               <span class="stat-label">Guide refreshed</span>

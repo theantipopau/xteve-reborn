@@ -150,6 +150,36 @@ are the per-change detail, including how each fix was verified, and
 
 ---
 
+## What's new in 3.0.3
+
+#### Backup channels that share the load
+* **Load-aware source selection** — when a channel offers the same content from several providers,
+  the tuner now picks a healthy source with no active viewers first, then the least-loaded one,
+  instead of always the first responder. Channels with a healthy, idle primary are exactly as fast
+  as before (one probe). The same channel from three providers no longer piles every viewer onto
+  one account until the provider cuts it off for too many connections. (Idea credited to
+  [c0y0t3d3n/iptv](https://github.com/c0y0t3d3n/iptv) — see Credits.)
+* **Auto-fill backups across providers** — one click on the dashboard fills every channel's empty
+  backup slots with the same channel's URLs from your *other* providers (case-insensitive name
+  match, at most one backup per provider, existing backups preserved; "Rebuild backups" replaces
+  them). Multi-provider setups get failover across their whole lineup without editing channels
+  one by one.
+* **UDPxy works with backups** — with an UDPxy relay configured, backup URLs are now rewritten
+  through it too; previously a multicast backup could bypass the relay entirely.
+
+#### Verified harder
+* The Docker smoke test fails unless the container's own HEALTHCHECK reports `healthy`.
+* The Jellyfin end-to-end workflow now seeds a real provider into the app, asserts a populated
+  lineup, follows the `/stream/` redirect to the provider's bytes, and confirms Jellyfin imports
+  the channel — previously it only proved tuner registration with an empty lineup.
+
+#### Project
+* A small project website: [theantipopau.github.io/xteve-reborn](https://theantipopau.github.io/xteve-reborn/).
+* Xtream Codes account status (true provider-wide connection counts) is scoped in
+  [issue #1](https://github.com/theantipopau/xteve-reborn/issues/1), not in this release.
+
+---
+
 ## What's different from upstream xTeVe (v3.0.2)
 
 Upstream's last tagged release was `2.2.0`, from 2021. Everything below is new in this fork — the

@@ -9,7 +9,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"xteve-reborn/src/internal/authentication"
@@ -558,35 +557,7 @@ func saveXEpgMapping(request RequestStruct) (err error) {
 	Data.XEPG.Channels = request.EpgMapping
 	xepgLock.Unlock()
 
-	if tryStartScan() {
-
-		cleanupXEPG()
-		endScan()
-		buildXEPG(true)
-
-	} else {
-
-		// Saved while a rebuild is running: queue exactly one follow-up
-		// rebuild for when it finishes, however many saves happen meanwhile.
-		if atomic.CompareAndSwapInt32(&rebuildQueued, 0, 1) == false {
-			return
-		}
-
-		go func() {
-
-			defer atomic.StoreInt32(&rebuildQueued, 0)
-
-			for tryStartScan() == false {
-				time.Sleep(time.Second)
-			}
-
-			cleanupXEPG()
-			endScan()
-			buildXEPG(false)
-
-		}()
-
-	}
+	triggerXEPGRebuild()
 
 	return
 }

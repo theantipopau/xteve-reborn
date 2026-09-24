@@ -12,6 +12,9 @@ type RequestStruct struct {
 	// Mapping
 	EpgMapping map[string]interface{} `json:"epgMapping,omitempty"`
 
+	// Free-form command options, e.g. autoFillBackups' ["overwrite"]
+	Options []string `json:"options,omitempty"`
+
 	// Restore
 	Base64 string `json:"base64,omitempty"`
 

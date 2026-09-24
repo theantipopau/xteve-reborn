@@ -3,7 +3,7 @@
 > Pre-posting checklist:
 > - Repo is **public** (verified): https://github.com/theantipopau/xteve-reborn
 > - Prebuilt binaries + a multi-arch Docker image are on the
->   [Releases page](https://github.com/theantipopau/xteve-reborn/releases). Current release: **3.0.2**.
+>   [Releases page](https://github.com/theantipopau/xteve-reborn/releases). Current release: **3.0.3**.
 > - Include the repo link, the Releases link, and `ghcr.io/theantipopau/xteve-reborn:latest`.
 > - Skim each subreddit's self-promotion / flair rules first, and don't post identical copies
 >   everywhere the same day.
@@ -33,7 +33,7 @@ fixed, and a UI that looks exactly like it did five years ago.
 So instead of just complaining, I forked it: **[xteve-reborn](https://github.com/theantipopau/xteve-reborn)**.
 Same core idea — it merges your M3U playlists and XMLTV guide data and presents itself to
 Plex/Emby/Jellyfin as an HDHomeRun-style tuner, so your IPTV sources show up as Live TV with a real
-guide. It's now at **3.0.2**, and the first releases with prebuilt binaries and a multi-arch Docker
+guide. It's now at **3.0.3**, and the first releases with prebuilt binaries and a multi-arch Docker
 image.
 
 **What I fixed:**
@@ -54,9 +54,13 @@ image.
   that accepted a connection but never answered could hang the stream indefinitely. Same for
   playlist/EPG downloads, logo fetches, and update checks — all now have sane timeouts, with the
   response body left unbounded so long streams aren't cut off.
-- **Backup / failover channels** (borrowed from the Threadfin fork): up to 3 backup URLs per channel,
-  with a reachability check picking the first that responds, so a dead primary doesn't mean a dead
-  channel.
+- **Backup / failover channels that share the load** (borrowed from the Threadfin fork, then made
+  smarter): up to 3 backup URLs per channel, and the tuner picks a healthy source with no active
+  viewers first, then the least-loaded one — so the same channel from three providers doesn't pile
+  onto one account until it hits its connection limit. One dashboard click auto-fills the backups
+  from your other providers by matching channel names, so multi-provider setups get failover
+  across the whole lineup without editing channels one by one. (The load-aware selection idea
+  came from u/c0y0t3d3n's own IPTV tuner — credited in the README.)
 - **A real self-updater.** The old one shipped pointed at upstream's binaries with auto-update on (it
   would have overwritten the fork). It now pulls this repo's releases, and every release ships a
   SHA-256 checksums file it verifies before installing.
