@@ -11,3 +11,6 @@ xteve-reborn.exe
 .devdata*/
 de.json
 node_modules/
+
+# Local tool state, not project content
+.freebuff/
