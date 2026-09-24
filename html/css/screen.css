@@ -7,6 +7,17 @@ nav img {
   margin: 0 auto;
 }
 
+/* The nav items are the app's primary navigation; give them the same
+   keyboard-visible focus treatment as everything else. */
+#main-menu li {
+  outline: none;
+}
+
+#main-menu li:focus-visible {
+  box-shadow: inset var(--focus-ring);
+  background-color: var(--bg-elevated);
+}
+
 nav p {
   display: none;
   text-align: left;
@@ -110,7 +121,12 @@ nav p {
 #settings-footer {
 }
 
-/* First-run / login / wizard header logo */
+/* First-run / login / wizard header logo.
+   The artwork is an opaque dark plate (3:1) with the wordmark on it, so on a
+   light background it reads as a dark rectangle. The container matches that
+   aspect and `contain` therefore fills it, so rounding the container rounds
+   the plate too - making it look like a deliberate brand chip in both themes.
+   A proper light-mode logo asset would be better; there isn't one. */
 #header.imgCenter {
   width: 220px;
   height: 74px;
@@ -119,6 +135,8 @@ nav p {
   background-repeat: no-repeat;
   background-position: center;
   background-size: contain;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
 }
 
 /* Wizard / auth card */
@@ -542,7 +560,7 @@ tbody {
 }
 
 #popup {
-  background-color: rgba(5, 7, 12, 0.6);
+  background-color: var(--overlay);
   position: fixed;
   left: 0px;
   width: 100%;
@@ -589,7 +607,7 @@ tbody {
 
 #popup-custom input[type=text].notAvailable {
   border-color: var(--danger);
-  color: #666;
+  color: var(--input-disabled-text);
   cursor: not-allowed;
 }
 
@@ -705,6 +723,9 @@ tbody {
     background-repeat: no-repeat;
     background-position: center;
     background-size: 260px 87px;
+    /* Filled exactly by the artwork, so this rounds the plate - see
+       #header.imgCenter above. */
+    border-radius: var(--radius);
   }
 
   #screenLog {

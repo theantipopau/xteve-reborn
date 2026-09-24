@@ -1,8 +1,11 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /> 
+    <meta name="color-scheme" content="dark light">
+    <meta name="theme-color" content="#0a0d14" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#f4f6fa" media="(prefers-color-scheme: light)">
     <title>xTeVe Reborn</title>
     <link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png">
     <link rel="icon" type="image/png" sizes="192x192" href="img/favicon-192.png">
@@ -18,11 +21,15 @@
 
     <body onload="javascript: readyForConfiguration(0);">
           
-      <div id="loading" class="block">
-        <div class="loader"></div>
+      <div id="loading" class="block" role="status" aria-live="polite" aria-label="Loading">
+        <div class="loader" aria-hidden="true"></div>
       </div>
 
-      <div id="header" class="imgCenter"></div>
+      <!-- Shown so the setup wizard's copy-to-clipboard toasts are announced;
+           base_ts.ts reuses an existing #toast-container. -->
+      <div id="toast-container" aria-live="polite" aria-atomic="false" aria-label="Notifications"></div>
+
+      <div id="header" class="imgCenter" role="img" aria-label="xTeVe Reborn"></div>
       <div id="box">
         
         <table id="clientInfo" class="visible">

@@ -1,8 +1,11 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0" /> 
+    <meta name="color-scheme" content="dark light">
+    <meta name="theme-color" content="#0a0d14" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#f4f6fa" media="(prefers-color-scheme: light)">
     <title>xTeVe Reborn</title>
     <link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png">
     <link rel="icon" type="image/png" sizes="192x192" href="img/favicon-192.png">
@@ -15,7 +18,7 @@
 
     <body>
           
-      <div id="header" class="imgCenter"></div>
+      <div id="header" class="imgCenter" role="img" aria-label="xTeVe Reborn"></div>
 
       <div id="box">
 
@@ -29,10 +32,16 @@
 
             <form id="authentication" action="" method="post">
 
+              <!-- The h5 above each field is a visual heading, not an
+                   associated label, so the accessible name comes from
+                   aria-label (matching the visible text). autocomplete lets
+                   password managers fill these, which they couldn't before. -->
               <h5>{{.login.username.title}}:</h5>
-              <input id="username" type="text" name="username" placeholder="Username" value="">
+              <input id="username" type="text" name="username" placeholder="Username" value=""
+                     aria-label="{{.login.username.title}}" autocomplete="username" autofocus>
               <h5>{{.login.password.title}}:</h5>
-              <input id="password" type="password" name="password" placeholder="Password" value="">
+              <input id="password" type="password" name="password" placeholder="Password" value=""
+                     aria-label="{{.login.password.title}}" autocomplete="current-password">
 
             </form>
 

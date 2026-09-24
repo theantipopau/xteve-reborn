@@ -1,4 +1,10 @@
+/* Every colour below is a token so the light theme further down is a rewrite
+   of this block rather than a hunt for hardcoded values. `color-scheme` tells
+   the browser to render native chrome (scrollbars, form controls, the
+   autofill background) in the matching palette instead of always-dark. */
 :root {
+  color-scheme: dark;
+
   --bg: #0a0d14;
   --bg-alt: #10141d;
   --bg-elevated: #161b26;
@@ -14,9 +20,66 @@
   --danger: #f87171;
   --warning: #fbbf24;
   --success: #4ade80;
+  --on-accent: #04121a;
+  --scrollbar-thumb: #333c4d;
+  --code-text: #c3cad9;
+  --debug: #e879f9;
+  --overlay: rgba(5, 7, 12, 0.6);
+  --overlay-strong: rgba(10, 13, 20, 0.85);
+  --input-disabled-text: #666;
   --radius-sm: 6px;
   --radius: 10px;
   --shadow: 0 8px 28px rgba(0, 0, 0, 0.4);
+  --focus-ring: 0 0 0 3px var(--accent-soft), 0 0 0 1px var(--accent);
+  --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5l5-5' fill='none' stroke='%238b93a7' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+
+/* Light theme. Chosen automatically from the OS/browser preference - there is
+   no in-app toggle (that would need JS), so this is deliberately zero-config.
+   The accent is darkened from the dark theme's cyan: #22d3ee fails contrast
+   against a light surface, especially as button/link text. */
+@media (prefers-color-scheme: light) {
+  :root {
+    color-scheme: light;
+
+    --bg: #f4f6fa;
+    --bg-alt: #eceff5;
+    --bg-elevated: #ffffff;
+    --bg-input: #ffffff;
+    --border: #d5dbe6;
+    --border-soft: #e5e9f1;
+    --text: #16202e;
+    --text-muted: #5b6a80;
+    --accent: #0e7490;
+    --accent-2: #2563eb;
+    --accent-gradient: linear-gradient(135deg, #0891b2 0%, #2563eb 100%);
+    --accent-soft: rgba(14, 116, 144, 0.12);
+    --danger: #dc2626;
+    --warning: #b45309;
+    --success: #15803d;
+    --on-accent: #ffffff;
+    --scrollbar-thumb: #c3cbd9;
+    --code-text: #33415c;
+    --debug: #a21caf;
+    --overlay: rgba(15, 23, 42, 0.45);
+    --overlay-strong: rgba(244, 246, 250, 0.85);
+    --input-disabled-text: #94a3b8;
+    --shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+    --select-arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5 6 6.5l5-5' fill='none' stroke='%235b6a80' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
+}
+
+/* Respect the OS "reduce motion" setting: the spin, slide and fade animations
+   are decorative, so drop them and keep only instant state changes. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 * {
@@ -26,6 +89,23 @@
   -ms-appearance: none;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
   letter-spacing: 0.2px;
+}
+
+/* Keyboard focus must be visible. Mouse clicks don't need a ring, so this is
+   :focus-visible rather than :focus - several rules further down explicitly
+   set outline:none, which previously left keyboard users with no indication
+   of where they were. */
+:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+input[type=button]:focus-visible,
+input[type=submit]:focus-visible,
+input[type=checkbox]:focus-visible,
+select:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 ::-webkit-scrollbar {
@@ -40,7 +120,7 @@
 ::-webkit-scrollbar-thumb {
   border-radius: 6px;
   border: 3px solid var(--bg-alt);
-  background-color: #333c4d;
+  background-color: var(--scrollbar-thumb);
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -114,7 +194,7 @@ p {
 
 pre {
   margin: 0px 0px 5px 0px;
-  color: #c3cad9;
+  color: var(--code-text);
   letter-spacing: 0.3px;
   white-space: pre-wrap;
   font-family: "SFMono-Regular", Consolas, Menlo, monospace;
@@ -145,6 +225,13 @@ li:hover {
   background-color: var(--bg-elevated);
 }
 
+/* The blanket `appearance: none` above keeps the dark/light form controls
+   consistent, but it also removed the selects' dropdown arrow entirely, so a
+   select looked identical to a readonly text field. Draw the affordance back
+   with a tokenised chevron (see --select-arrow), and reserve room for it in
+   the padding. Keep these here rather than in a separate rule: a later
+   `padding` shorthand would silently reset padding-right and the chevron would
+   sit on top of the text. */
 select {
   cursor: pointer;
   width: calc(100% + 2px);
@@ -152,9 +239,13 @@ select {
   border-radius: var(--radius-sm);
   outline: none;
   color: var(--text);
-  padding: 9px 10px;
+  padding: 9px 34px 9px 10px;
   display: block;
   background-color: var(--bg-input);
+  background-image: var(--select-arrow);
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 12px 8px;
   font-size: 14px;
   margin: 5px 0px 5px 0px;
   transition: border-color 0.15s ease;
@@ -182,12 +273,13 @@ input[type=button], input[type=submit] {
   border: solid 0px;
   border-radius: var(--radius-sm);
   outline: none;
-  color: #04121a;
+  color: var(--on-accent);
   font-weight: 600;
   letter-spacing: 0.3px;
   transition: filter 0.15s ease, transform 0.15s ease;
 }
 
+/* Visible focus comes from the :focus-visible rule near the top. */
 input[type=button]:focus {
   outline: none;
 }
@@ -230,7 +322,7 @@ input[type="checkbox"] {
 }
 
 input[type="checkbox"]:checked {
-  color: #04121a;
+  color: var(--on-accent);
   background: var(--accent-gradient);
   border-color: transparent;
 }
@@ -247,12 +339,17 @@ input[type="checkbox"]:checked:before {
   left: 0px;
   margin-left: -3px;
   content: "\2713";
-  color: #04121a;
+  color: var(--on-accent);
   font-weight: 700;
 }
 
+/* `background` (the shorthand), not `background-color`: the base
+   input[type=button] rule sets the accent gradient via the shorthand, so
+   overriding only the colour left the gradient's background-image in place and
+   Cancel painted as a second primary button with red text on it. The shorthand
+   resets background-image too, which is what makes this transparent. */
 input[type=button].cancel {
-  background-color: transparent;
+  background: transparent;
   border: solid 1px var(--danger);
   color: var(--danger);
 }
@@ -421,7 +518,7 @@ input[type=button].center {
 }
 
 .debugMsg {
-  color: #e879f9;
+  color: var(--debug);
 }
 
 .News, .Movie, .Series, .Sports, .Kids {
@@ -454,7 +551,7 @@ input[type=button].center {
   top: 0px;
   z-index: 10000;
   position: absolute;
-  background-color: rgba(10, 13, 20, 0.85);
+  background-color: var(--overlay-strong);
   margin: auto;
   width: 100%;
   height: 100%;

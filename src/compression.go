@@ -147,18 +147,42 @@ func extractGZIP(gzipBody []byte, fileSource string) (body []byte, err error) {
 	return
 }
 
+// compressGZIP writes a gzip-compressed copy of data to file. An empty file
+// path means "compression off" and is a no-op.
+//
+// The output file is closed explicitly. It previously was not: `f, err :=
+// os.Create(...)` also shadowed the named error, so a failure to create the
+// file was silently swallowed too. The missing Close leaked a file descriptor
+// on every guide rebuild, and on Windows left the .gz locked against being
+// replaced or deleted. That was rare when the guide was only rebuilt at the
+// daily scheduled refresh, but 3.0.1 rebuilds it whenever a source changes,
+// so the leak accumulated steadily in a long-running instance.
 func compressGZIP(data *[]byte, file string) (err error) {
 
-	if len(file) != 0 {
+	if len(file) == 0 {
+		return nil
+	}
 
-		f, err := os.Create(file)
-		if err != nil {
-			return err
-		}
+	f, err := os.Create(file)
+	if err != nil {
+		return err
+	}
 
-		w := gzip.NewWriter(f)
-		w.Write(*data)
-		w.Close()
+	// Close the gzip writer before the file so the trailer is flushed and the
+	// compressed data isn't truncated. Attempt both closes even if the write
+	// or the first close fails, and report the first error seen.
+	w := gzip.NewWriter(f)
+
+	if _, werr := w.Write(*data); werr != nil {
+		err = werr
+	}
+
+	if cerr := w.Close(); cerr != nil && err == nil {
+		err = cerr
+	}
+
+	if cerr := f.Close(); cerr != nil && err == nil {
+		err = cerr
 	}
 
 	return

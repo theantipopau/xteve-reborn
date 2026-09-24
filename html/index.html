@@ -1,8 +1,11 @@
 <!doctype html>
-<html>
+<html lang="en">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="dark light">
+    <meta name="theme-color" content="#0a0d14" media="(prefers-color-scheme: dark)">
+    <meta name="theme-color" content="#f4f6fa" media="(prefers-color-scheme: light)">
     <title>xTeVe Reborn</title>
     <link rel="icon" type="image/png" sizes="32x32" href="img/favicon-32.png">
     <link rel="icon" type="image/png" sizes="192x192" href="img/favicon-192.png">
@@ -20,13 +23,18 @@
 
     <body onload="javascript: PageReady();">
 
-      <div id="loading" class="none">
-        <div class="loader"></div>
+      <div id="loading" class="none" role="status" aria-live="polite" aria-label="Loading">
+        <div class="loader" aria-hidden="true"></div>
       </div>
 
       <div id="popup" class="none">
-        <div id="popup-custom"></div>
+        <div id="popup-custom" role="dialog" aria-modal="true" aria-label="Dialog"></div>
       </div>
+
+      <!-- Declared here rather than created by script so it exists before any
+           toast fires and so screen readers announce new ones. base_ts.ts
+           reuses an existing #toast-container instead of making its own. -->
+      <div id="toast-container" aria-live="polite" aria-atomic="false" aria-label="Notifications"></div>
 
       <div id="layout">
 
@@ -43,7 +51,7 @@
 
         <div id="menu-wrapper" class="layout-left">
           <div id= "branch"></div>
-          <div id="logo"></div>
+          <div id="logo" role="img" aria-label="xTeVe Reborn"></div>
           <nav id="main-menu"></nav>
         </div>
 

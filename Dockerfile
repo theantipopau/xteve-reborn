@@ -41,12 +41,25 @@ COPY --chmod=755 docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 # than the self-updater rewriting the binary.
 ENV PUID=1000 \
     PGID=1000 \
-    XTEVE_REBORN_DOCKER=1
+    XTEVE_REBORN_DOCKER=1 \
+    XTEVE_REBORN_PORT=34400
 
 # All config, playlists-by-path, and generated data live under /config -
 # mount a volume there so it survives container recreation.
 VOLUME ["/config"]
 EXPOSE 34400
+
+# Probe the HDHomeRun discovery endpoint the app already serves, so Docker
+# (and anything consuming container health - compose's depends_on with
+# condition: service_healthy, Portainer, Unraid, Kubernetes) can tell a
+# running-but-wedged app from a healthy one. The app binds all interfaces,
+# so loopback works under both host and bridge networking. If you change
+# the app's port in Settings, set XTEVE_REBORN_PORT to match or the
+# container will report unhealthy while still working.
+#
+# busybox wget (ships with Alpine) rather than curl, which isn't installed.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
+  CMD wget -q -O /dev/null "http://127.0.0.1:${XTEVE_REBORN_PORT}/discover.json" || exit 1
 
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 CMD ["-config", "/config"]

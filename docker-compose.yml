@@ -23,8 +23,24 @@ services:
       # Refresh schedules ("0000" = midnight) and the dashboard's times use
       # this timezone; containers default to UTC.
       - TZ=Etc/UTC
+      # Only read by the container's HEALTHCHECK below, not by the app.
+      # Change it if you change the app's port in Settings.
+      - XTEVE_REBORN_PORT=34400
     volumes:
       - ./config:/config
+    # The image ships an equivalent HEALTHCHECK, so this is only needed if you
+    # want different timings (or to see it spelled out). It probes the
+    # HDHomeRun discovery endpoint, which the app serves on every interface -
+    # so it works with both host networking (above) and the port mapping
+    # below. `docker compose ps` / Portainer / Unraid then show real health,
+    # and a dependent service can use
+    # `depends_on: {xteve-reborn: {condition: service_healthy}}`.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null \"http://127.0.0.1:$${XTEVE_REBORN_PORT:-34400}/discover.json\" || exit 1"]
+      interval: 30s
+      timeout: 5s
+      start_period: 20s
+      retries: 3
     # If you don't want host networking, comment out network_mode above
     # and uncomment the port mapping below instead:
     # ports:

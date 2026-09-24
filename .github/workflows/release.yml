@@ -1,0 +1,146 @@
+name: Release
+
+# Runs on a version tag and publishes everything the in-app updater expects
+# to find in a release. Replaces running tools/release/build-release.ps1 by
+# hand on Windows, which meant official binaries could only be produced from
+# one machine/OS.
+#
+# The naming here is load-bearing, not cosmetic - src/internal/up2date/client
+# looks up an exact asset name and reads an exact zip entry, so changing any
+# of it silently breaks self-update for that release:
+#   asset:  xteve-reborn_<version>_<os>_<arch>.zip   (<version> = tag minus "v")
+#   entry:  xteve-reborn            (xteve-reborn.exe on Windows), at the zip root
+#   file:   xteve-reborn_<version>_checksums.txt     ("<sha256>  <name>" lines)
+# update_test.go pins the same shapes; keep them in sync.
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - {goos: windows, goarch: amd64, ext: ".exe"}
+          - {goos: linux, goarch: amd64, ext: ""}
+          - {goos: linux, goarch: arm64, ext: ""}
+          - {goos: darwin, goarch: amd64, ext: ""}
+          - {goos: darwin, goarch: arm64, ext: ""}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache: true
+
+      - name: Derive version
+        id: vars
+        run: |
+          # For tag v3.0.2 the asset names use the bare version (3.0.2); the
+          # -ldflags value keeps the leading "v" (it's what the running app
+          # reports and compares against release tags).
+          VERSION="${GITHUB_REF_NAME#v}"
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${GITHUB_REF_NAME}" >> "$GITHUB_OUTPUT"
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+        run: |
+          set -euo pipefail
+          BIN="xteve-reborn${{ matrix.ext }}"
+          mkdir -p "package/${BIN}"
+          go build -trimpath \
+            -ldflags "-s -w -X main.ReleaseTag=${{ steps.vars.outputs.tag }}" \
+            -o "package/${BIN}/$BIN" .
+
+      - name: Package zip
+        id: zip
+        env:
+          VERSION: ${{ steps.vars.outputs.version }}
+        run: |
+          set -euo pipefail
+          BIN="xteve-reborn${{ matrix.ext }}"
+          NAME="xteve-reborn_${VERSION}_${{ matrix.goos }}_${{ matrix.goarch }}.zip"
+          # -j junks the directory, so the binary sits at the zip root - that
+          # exact top-level entry is what extractFile() matches on.
+          ( cd "package/${BIN}" && zip -q -j "${GITHUB_WORKSPACE}/dist/${NAME}" "${BIN}" )
+          echo "name=${NAME}" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.zip.outputs.name }}
+          path: dist/${{ steps.zip.outputs.name }}
+          if-no-files-found: error
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      # Needed for the hand-written release notes below, which live in the
+      # repo. The build job's artifacts arrive separately.
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Generate checksums file
+        env:
+          VERSION: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          VERSION="${VERSION#v}"
+          cd dist
+          # LC_ALL=C so the (already alphabetical) glob order can't vary by
+          # locale, and sha256sum's "<hash>  <name>" format is exactly what
+          # expectedChecksum()/parseChecksum() read.
+          #
+          # Use the bare glob, NOT ./*.zip: sha256sum echoes its arguments
+          # verbatim, so "./*.zip" would write "./xteve-reborn_..._amd64.zip"
+          # - which parseChecksum compares (after stripping any "*") against
+          # filepath.Base(url) and therefore never matches, making every
+          # release refuse to self-update.
+          LC_ALL=C sha256sum *.zip > "xteve-reborn_${VERSION}_checksums.txt"
+          echo "--- release contents ---"
+          ls -l
+          cat "xteve-reborn_${VERSION}_checksums.txt"
+
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          # A "-" in the version (3.0.0-pre.4) means a prerelease: don't let
+          # it take over the "latest" pointer the updater and Downloads
+          # section rely on.
+          PRE=""
+          case "$TAG" in *-*) PRE="--prerelease" ;; esac
+
+          # Prefer hand-written notes (tools/release/notes-v3.0.2.md) - they're
+          # written for someone deciding whether to upgrade, where
+          # --generate-notes just dumps commit subjects. Fall back to generated
+          # notes so a tag with no notes file still publishes.
+          NOTES="tools/release/notes-${TAG}.md"
+          if [ -f "$NOTES" ]; then
+            echo "Using hand-written notes from $NOTES"
+            BODY=(--notes-file "$NOTES")
+          else
+            echo "No $NOTES - falling back to generated notes"
+            BODY=(--generate-notes)
+          fi
+
+          gh release create "$TAG" dist/*.zip dist/*.txt \
+            --title "xteve-reborn ${TAG#v}" \
+            "${BODY[@]}" $PRE

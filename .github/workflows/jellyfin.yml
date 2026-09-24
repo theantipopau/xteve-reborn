@@ -1,0 +1,64 @@
+name: Jellyfin
+
+# Runs tools/jellyfin-smoke/run.sh: a real Jellyfin container, driven through
+# its own startup wizard and HTTP API, asked to add this app as a Live TV
+# tuner over the HDHomeRun protocol.
+#
+# Deliberately NOT triggered on pull_request yet. It depends on a third party's
+# API surface, so it should be proven green on main (and over a couple of
+# Jellyfin releases) before anyone gates merges on it. Add a `pull_request`
+# trigger once that's true - it's otherwise ready.
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Weekly, Mondays 06:00 UTC - catches drift in Jellyfin's API even when
+    # this repo hasn't changed.
+    - cron: "0 6 * * 1"
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "go.mod"
+      - "go.sum"
+      - "tools/jellyfin-smoke/**"
+      - ".github/workflows/jellyfin.yml"
+
+permissions:
+  contents: read
+
+env:
+  # Pinned so a Jellyfin-side release can't silently turn this red; bump it
+  # deliberately. Keep in sync with the default in tools/jellyfin-smoke/run.sh.
+  JF_IMAGE: jellyfin/jellyfin:10.9.11
+
+jobs:
+  jellyfin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+          cache: true
+
+      - name: Build the app
+        run: |
+          mkdir -p .devdata/jellyfin-smoke
+          go build -o .devdata/jellyfin-smoke/xteve-reborn .
+
+      - name: Pull Jellyfin
+        run: docker pull "$JF_IMAGE"
+
+      - name: Run Jellyfin end-to-end check
+        run: ./tools/jellyfin-smoke/run.sh
+
+      - name: Dump logs on failure
+        if: failure()
+        run: |
+          echo "--- app log ---"
+          find /tmp -name app.log -path '*tmp.*' -exec cat {} + 2>/dev/null || true
+          echo "--- jellyfin log ---"
+          docker logs xteve-reborn-jellyfin-smoke 2>&1 | tail -200 || true

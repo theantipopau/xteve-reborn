@@ -19,9 +19,134 @@ with one click or automatically if you turn that on in Settings.
 
 ---
 
-## What's different from upstream xTeVe (v3.0.0)
+## Highlights: what this fork fixes or adds over upstream xTeVe
 
-Upstream's last tagged release was `2.2.0`, from 2021. Everything below is new in this fork.
+Upstream's last release was `2.2.0`, from 2021. Since then this fork has modernised the build, fixed
+bugs that ranged from annoying to genuinely dangerous, and given the web UI a real visual overhaul.
+If you only read one section of this README, read this one — it's the summary. The sections after it
+are the per-change detail, including how each fix was verified, and
+[`runningchangelog.md`](runningchangelog.md) is the full running record.
+
+**Security**
+* **Fixed stored XSS in the web UI.** Channel names, group titles and similar fields come from
+  whatever M3U/XMLTV provider you point the app at, and they were rendered with `innerHTML` rather
+  than as text. A malicious or compromised provider could put markup in a channel name and have it
+  execute inside your admin session.
+* **Rebuilt password hashing.** The old scheme computed a fast single HMAC and silently ignored the
+  per-user salt it was handed, so the same password produced the same hash on every installation.
+  Now salted PBKDF2-HMAC-SHA256 at 210,000 iterations, with constant-time comparison.
+* **The updater no longer points at upstream's binaries.** Upstream shipped it aimed at
+  `xteve-project/xTeVe-Downloads` with automatic install *enabled*, which would have overwritten
+  this fork with upstream's build the first time it checked. It now reads this repo's own GitHub
+  Releases and verifies a SHA-256 checksum before installing anything.
+* A malformed HTTP Basic-Auth header can no longer panic the request goroutine, and the session
+  cookie is explicitly scoped (`Path=/`, `SameSite=Lax`).
+
+**Crashes and hangs**
+* **Fixed an unrecoverable crash in the core channel database.** `Data.XEPG.Channels` — the map
+  behind every channel's mapping and EPG data — was read and rewritten from several goroutines with
+  no coordination, and Go maps abort the whole process on concurrent access. A follow-up audit
+  found **four more** instances of the same pattern, including the stream-URL cache that's read on
+  every single stream start. Each fix was reproduced against `go test -race` *before* being fixed,
+  and `-race` now runs in CI.
+* **No HTTP client in the app had a timeout.** A provider that accepted a connection and then went
+  silent hung a stream goroutine forever. Streams, playlist/EPG downloads, logo fetches and update
+  checks now each bound how long they wait — while deliberately leaving long-running live streams
+  unbounded so they aren't cut off.
+* **Fixed the guide URL the app itself gave you.** The dashboard displayed `/xmltv/xteve.xml`,
+  hardcoded, while the file it actually generated was named after the app — so pasting the address
+  it showed you into Plex got a 404.
+* **Fixed a UI-wide silent freeze.** Every request serialized through one global lock, which a
+  10-second background log poll shared — a click landing on a poll was silently dropped, with no
+  error and no sign anything had happened. The poll has its own lock now, and requests carry a 15s
+  timeout instead of hanging the UI forever.
+
+**Streaming**
+* **Backup / failover channels** (ported from Threadfin): up to 3 backup stream URLs per channel. A
+  cheap reachability check picks the first one that actually answers before your client connects,
+  so one dead provider no longer means a dead channel — and channels with no backups pay no cost.
+* **Stream requests no longer 404** when the client appends a query string or connects through a
+  proxy, and the configured User-Agent is now actually sent on M3U/XMLTV downloads (upstream set it
+  on the response instead of the request, a no-op).
+
+**The guide stays current**
+* **Sources are re-checked every 60 minutes** (configurable, 0 turns it off) instead of only at the
+  fixed daily refresh, so an EPG change upstream reaches Plex the same hour instead of the next day.
+  Only a source whose content actually changed is re-downloaded, and the checks use conditional
+  requests, so a server that supports ETag / Last-Modified answers "not modified" without
+  resending the file. The dashboard shows the last refresh and the next check, with a
+  **Check sources now** button.
+* **The Log page actually works:** it no longer prints literal `&nbsp;`, no longer silently drops
+  every other line once it reaches 500 entries, and its writes no longer race each other.
+* **Rebuild flags are atomic**, so two rebuilds can't start together and one finishing can't clear
+  the other's flag.
+
+**Docker**
+* **Runs as a normal user** — set `PUID`/`PGID` (default 1000) and the container takes ownership of
+  `/config` at startup. Set `TZ` so scheduled refresh times match your local time.
+* **Reports real health.** A `HEALTHCHECK` probes the tuner endpoint, so `docker compose ps`,
+  Portainer and Unraid show actual container health and
+  `depends_on: {condition: service_healthy}` works.
+* The in-app updater is disabled inside a container — update by pulling the image.
+
+**Setup is no longer a guessing game**
+* The wizard ends by showing you **the exact address to paste into Plex/Emby/Jellyfin** in a
+  copy-button box, with one-line instructions and a manual-entry fallback — and the copy button now
+  reports failure honestly instead of always claiming success on plain HTTP.
+* The wizard asks whether to **require a login** for the web interface (recommended — the Log page
+  displays provider URLs, which usually contain your account credentials), and takes the tuner count
+  as a number field.
+* **Explains why non-US users see no guide data.** The "PMS" EPG source delegates to Plex/Emby's own
+  guide database, which is overwhelmingly US/Canada-focused; the UI now says so and points
+  international users at XEPG (bring your own XMLTV) or the dummy-schedule fallback.
+
+**The web UI**
+* **Full visual refresh** — a new dark navy/cyan design system built on CSS custom properties
+  (colour, spacing, radius), a modern system-font stack, redesigned buttons/inputs/checkboxes/tables,
+  a refined sidebar with active-state highlighting, and rounded cards and softer shadows throughout.
+* **A light theme that follows your OS** (3.0.2) — the same design in a second colour scheme, picked
+  automatically, with no in-app toggle to maintain.
+* **Accessibility pass** (3.0.2) — pages declare their language, keyboard focus is visible again
+  (buttons had their focus outline removed with nothing replacing it), the detail and mapping popups
+  are real dialogs for screen readers, toasts announce through a live region, and the login and
+  first-run forms carry autofill hints so password managers can fill them.
+* **New icon set and logo.** The old sidebar icons were a mismatched grab-bag of raster PNGs — one of
+  which was literally a heart on the *Filter* item. All 8 are now a consistent line-icon family. The
+  new logo and favicon appear on every page, including the login and setup screens, which previously
+  showed none at all.
+* **Redesigned dashboard status bar** as a real stat grid instead of a dense monospace abbreviation
+  table, with the long M3U/XEPG URLs broken out into their own row.
+* **Real mobile support** — an abandoned `.phone` class that matched no CSS rule was finished, the
+  dashboard's viewport tag was re-enabled, and the sidebar now collapses to an icon-only rail on
+  phones instead of eating most of the screen.
+* **Blocking `alert()` dialogs replaced with colour-coded, auto-dismissing toasts** — and three dead
+  ones removed, including a password check that alerted the literal placeholder `"sdafsd"`.
+* **Empty states** on every table, pointing at the next action rather than showing a bare header.
+* Fixed dropdowns showing no arrow (a global `appearance: none` with nothing added back) and
+  `Cancel` buttons rendering as a second primary button with red text on it.
+
+**Under the hood**
+* Go 1.16 → 1.24+ (tested on 1.27), every dependency updated, and the abandoned `kardianos/osext`
+  dependency removed in favour of the standard library's `os.Executable()`.
+* A GitHub Actions CI workflow (`gofmt`, `go vet`, `go build`, `go test` including `-race`) on every
+  push and PR, plus a check that regenerates the embedded UI bundle and fails if it's stale.
+* **Fixed the embedded web-asset bundle silently going stale**, which had been shipping an
+  out-of-date UI inside release binaries. The generator is now deterministic and platform-stable,
+  and CI fails the build if it drifts again.
+* **Jellyfin is a first-class target** — it speaks the same HDHomeRun tuner protocol Plex and Emby
+  do, and a contract suite now pins the discovery fields, lineup shape and generated XMLTV structure
+  it depends on.
+* **Releases are built by CI** from the tag across all five platforms, with the checksums file
+  generated automatically, instead of from one Windows machine.
+* Removed roughly 4,000 lines of dead legacy JavaScript that was still being embedded into every
+  build.
+
+---
+
+## What's different from upstream xTeVe (v3.0.2)
+
+Upstream's last tagged release was `2.2.0`, from 2021. Everything below is new in this fork — the
+per-change detail behind the highlights above, kept in the order it landed.
 
 #### Toolchain & dependencies
 * Go bumped from 1.16 → 1.24+ (tested on 1.27); module renamed `xteve-reborn`
@@ -318,6 +443,41 @@ even though pre.10 is newer) — added a small semver-ish comparator with full t
 * New tests for the tuner/lineup/stream endpoints Plex actually calls (including backup-channel
   failover), log trimming, source-change detection, and the updater.
 
+#### 3.0.2
+No settings or data format changes — safe to drop in over an existing install or container.
+
+* **The web UI has a light theme now.** It follows your OS/browser preference automatically
+  (there's no in-app toggle); before this it was dark-only regardless of your system setting.
+  The palette was already custom-property based, so this is the same design in a second scheme,
+  not a redesign.
+* **Accessibility pass.** Pages declare their language; keyboard focus is visible again (buttons
+  had their focus outline removed with nothing replacing it, so keyboard users had no idea where
+  they were); the detail/mapping popups are proper dialogs for screen readers; toasts are
+  announced through a live region; the CSS-background logo is labelled; and the login and
+  first-run forms carry autofill hints, so password managers can now fill them.
+* **Dropdowns show a dropdown arrow again.** A global `appearance: none` had stripped the native
+  indicator with nothing put back, so a `<select>` looked exactly like a read-only text field.
+  In the same area, fixed `Cancel` buttons rendering as a *second primary button* with red text
+  on it — a stylesheet shorthand was leaving the accent gradient in place.
+* **The Docker image reports real health.** A `HEALTHCHECK` probes the tuner endpoint, so
+  `docker compose ps`, Portainer and Unraid show actual container health and
+  `depends_on: {condition: service_healthy}` works. If you change the app's port, set
+  `XTEVE_REBORN_PORT` to match.
+* **Smaller binaries.** Removed roughly 4,000 lines of dead legacy JavaScript. The UI moved to
+  TypeScript, but the old hand-written files were left behind *and* were still being embedded
+  into every build, since the bundler walks the whole `html/` folder.
+* **Fixed a file-descriptor leak** in the XMLTV gzip writer — the output file was never closed,
+  so every guide rebuild leaked a descriptor and on Windows left the `.gz` locked against being
+  replaced. Rare when the guide only rebuilt daily; not rare since 3.0.1 rebuilds it whenever a
+  source changes.
+* **Jellyfin is covered by tests now.** A contract suite pins the HDHomeRun discovery fields,
+  lineup entry shape and generated XMLTV guide structure Jellyfin depends on, and runs in CI on
+  every push. A container-based end-to-end check against a real Jellyfin is also in the repo —
+  see the Jellyfin notes under Requirements.
+* **Releases are built by CI.** Tagging a `v*` release now builds all five platforms, packages
+  the zips and generates the checksums file automatically, replacing a manual, Windows-only
+  build script.
+
 ---
 
 ## Requirements
@@ -335,8 +495,10 @@ even though pre.10 is newer) — added a small semver-ish comparator with full t
 * Jellyfin Server (10.7.1 or newer)
 * Jellyfin Client with Live TV support
 * Add xteve-reborn as a Live TV tuner source of type "HDHomeRun" — the HDHomeRun tuner protocol
-  this project emulates is a de facto standard, so Jellyfin should detect it the same way Plex
-  and Emby do. Not yet verified end-to-end against a real Jellyfin instance in this fork; please
+  this project emulates is a de facto standard, so Jellyfin detects it the same way Plex and Emby
+  do. The tuner contract and the generated XMLTV guide are covered by tests that run in CI; a
+  container-based end-to-end check against a real Jellyfin
+  (`.github/workflows/jellyfin.yml`) is also in the repo, but has not been run yet — so please
   open an issue if you hit anything Jellyfin-specific.
 
 --- 
@@ -371,7 +533,8 @@ even though pre.10 is newer) — added a small semver-ish comparator with full t
 ## Downloads
 Prebuilt binaries (Windows/Linux/macOS, amd64+arm64) are published on the
 [Releases page](https://github.com/theantipopau/xteve-reborn/releases). The current release is
-`3.0.1`. Each release includes an `xteve-reborn_<version>_checksums.txt` file of SHA-256 hashes. You can also build from
+`3.0.2`. Each release includes an `xteve-reborn_<version>_checksums.txt` file of SHA-256 hashes, and
+is built by CI (`.github/workflows/release.yml`) rather than by hand. You can also build from
 source (below).
 
 #### Docker
@@ -392,6 +555,12 @@ docker run -d --name xteve-reborn --network host \
 The container runs as `PUID`:`PGID` (default 1000:1000 — use the output of `id` on the host) and
 takes ownership of `/config` at startup. Set `TZ` so scheduled refresh times match your local
 time; containers default to UTC. To update, pull the new image and recreate the container.
+
+The image defines a `HEALTHCHECK` that probes the tuner endpoint, so Docker, compose
+(`depends_on: {condition: service_healthy}`), Portainer and Unraid report real health rather than
+just "the process started". It assumes the default port; if you change the app's port in
+Settings, set `XTEVE_REBORN_PORT` to match or the container will report unhealthy while still
+working.
 
 A [`docker-compose.yml`](docker-compose.yml) example is in the repo. `--network host` (Linux only)
 gives Plex/Emby the best shot at auto-discovering the tuner over SSDP, since Docker's default
