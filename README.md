@@ -62,9 +62,11 @@ are the per-change detail, including how each fix was verified, and
   timeout instead of hanging the UI forever.
 
 **Streaming**
-* **Backup / failover channels** (ported from Threadfin): up to 3 backup stream URLs per channel. A
-  cheap reachability check picks the first one that actually answers before your client connects,
-  so one dead provider no longer means a dead channel — and channels with no backups pay no cost.
+* **Backup / failover channels** (ported from Threadfin): up to 3 backup stream URLs per channel. Before
+  your client connects, xTeVe Reborn probes the primary and backups and picks a healthy one — preferring a
+  source with no active viewers, then the least-loaded source, so the same channel from several providers
+  doesn't get stacked onto one account until it hits its connection limit. Channels with no backups pay no
+  cost.
 * **Stream requests no longer 404** when the client appends a query string or connects through a
   proxy, and the configured User-Agent is now actually sent on M3U/XMLTV downloads (upstream set it
   on the response instead of the request, a no-op).
@@ -289,10 +291,11 @@ the ones that still apply:
 [Threadfin](https://github.com/Threadfin/Threadfin) is a more actively-developed community fork
 of xTeVe (1.7k+ stars, regular releases, adds Jellyfin support). Rather than switching to it
 wholesale, brought over the pieces that fit this fork's own architecture:
-* **Backup/failover channels** — up to 3 backup stream URLs per channel. A lightweight
-  reachability check picks the first one that actually responds (primary first) before a client
-  connects, so a dead primary provider doesn't mean a dead channel. Channels with no backups
-  configured pay no cost — the check is skipped entirely.
+* **Backup/failover channels** — up to 3 backup stream URLs per channel. Before a client connects, each
+  candidate is probed and a healthy source is chosen — an idle source first, then the least-loaded one —
+  so one dead provider doesn't mean a dead channel, and viewers are spread across providers instead of
+  overrunning one account's connection limit. Channels with no backups configured pay no cost — the check
+  is skipped entirely.
 * **Jellyfin listed as a supported target** — it speaks the same HDHomeRun tuner protocol Plex
   and Emby do, so this should already work; added to the docs accordingly.
 
@@ -615,3 +618,13 @@ the project's conventions if you're contributing.
 
 ## License
 MIT — see [`LICENSE`](LICENSE), inherited unchanged from upstream xTeVe.
+
+## Credits
+
+* [c0y0t3d3n/iptv](https://github.com/c0y0t3d3n/iptv) — for the load-aware source-selection idea: when the
+  same channel is available from several providers, prefer the account with the most free connections
+  instead of the first one that answers. Their tuner ([@c0y0t3d3n](https://github.com/c0y0t3d3n)) targets
+  Plex with provider-side EPG and no XMLTV; the idea ports cleanly to xTeVe Reborn's XMLTV-based, M3U-driven
+  failover.
+* [Threadfin](https://github.com/Threadfin/Threadfin) — backup/failover channels and Jellyfin support.
+* [xTeVe](https://github.com/xteve-project/xTeVe) — the original project, by [saroxan](https://github.com/saroxan).

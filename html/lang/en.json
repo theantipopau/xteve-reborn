@@ -307,7 +307,7 @@
     {
       "title": "",
       "placeholder": "Stream URL (optional)",
-      "description": "If the main stream fails to connect, xTeVe Reborn tries these URLs in order before giving up. Leave blank if not needed."
+      "description": "If the main stream fails to connect or is already in use, xTeVe Reborn serves the channel from the first healthy source with spare capacity, probing these URLs before your client connects. Leave blank if not needed."
     }
   },
   "users":

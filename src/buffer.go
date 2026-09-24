@@ -48,29 +48,129 @@ func isStreamURLReachable(streamURL string) bool {
 	return resp.StatusCode == http.StatusOK
 }
 
-// resolveReachableStreamURL returns streamInfo's primary URL if it responds,
-// otherwise the first configured backup channel URL that does, otherwise the
-// primary unchanged - so a channel with no working backup behaves exactly
-// as it did before backup channels existed (same error further downstream).
+// activeClientConnections reports how many viewers this xTeVe Reborn instance
+// is currently serving from the given upstream stream URL, via the buffer's
+// BufferClients registry. BufferClients is keyed per playlist + URL hash and is
+// decremented (and deleted at zero) by killClientConnection, so it tracks live
+// load; BufferInformation's per-stream client counts are only fully cleared
+// once the last viewer leaves and therefore read stale in between.
+func activeClientConnections(streamURL string) int {
+
+	if len(streamURL) == 0 {
+		return 0
+	}
+
+	var urlHash = getMD5(streamURL)
+	var connections = 0
+
+	// BufferClients keys are "<playlistID><md5(streamURL)>" and the hash is
+	// always the last 32 characters, so a suffix match finds every stream of
+	// this URL without having to know the playlist IDs. The same upstream URL
+	// can serve several playlists, so the per-stream client counts are summed.
+	BufferClients.Range(func(key, value any) bool {
+
+		if keyString, ok := key.(string); ok && strings.HasSuffix(keyString, urlHash) {
+			if connection, ok := value.(ClientConnection); ok {
+				connections += connection.Connection
+			}
+		}
+
+		return true
+	})
+
+	return connections
+}
+
+// resolveReachableStreamURL picks the URL a client should connect to, from the
+// channel's primary and up to three configured backup URLs, all of which are
+// typically the same channel from different providers.
+//
+// Selection: a healthy, idle primary wins immediately (one probe, exactly the
+// cost the old first-responder behavior paid). Otherwise the first reachable
+// source with no active viewers wins, then - when every reachable source is
+// already serving streams - the one with the fewest viewers, so viewers are
+// spread across providers instead of stacked onto one account until the
+// provider cuts it off for exceeding its connection limit. When nothing
+// responds, the primary is returned unchanged, so a channel with no working
+// backup behaves exactly as it did before backup channels existed (same error
+// further downstream).
+//
+// The idle-first selection is credited to c0y0t3d3n's iptv project.
 func resolveReachableStreamURL(streamInfo StreamInfo) string {
 
-	if isStreamURLReachable(streamInfo.URL) {
-		return streamInfo.URL
+	var primary = streamInfo.URL
+
+	// Fast path: the primary answers and is not serving any streams from this
+	// instance. One probe, same as the first-responder behavior this function
+	// used to have - only channels whose primary is down or already in use
+	// pay for further checks.
+	if isStreamURLReachable(primary) {
+
+		if activeClientConnections(primary) == 0 {
+			return primary
+		}
+
+		var reachableURLs = []string{primary}
+
+		for _, backupURL := range []string{streamInfo.BackupURL1, streamInfo.BackupURL2, streamInfo.BackupURL3} {
+
+			if len(backupURL) == 0 || backupURL == primary {
+				continue
+			}
+
+			if isStreamURLReachable(backupURL) {
+
+				reachableURLs = append(reachableURLs, backupURL)
+
+				if activeClientConnections(backupURL) == 0 {
+					return backupURL
+				}
+
+			}
+
+		}
+
+		// No idle source. Serve from the reachable one with the fewest
+		// active viewers; SliceStable keeps this deterministic.
+		sort.SliceStable(reachableURLs, func(i, j int) bool {
+			return activeClientConnections(reachableURLs[i]) < activeClientConnections(reachableURLs[j])
+		})
+
+		return reachableURLs[0]
+
 	}
+
+	// Primary unreachable: first reachable idle backup wins; failing that,
+	// the least-loaded reachable backup; failing that, the primary unchanged.
+	var reachableBackups []string
 
 	for _, backupURL := range []string{streamInfo.BackupURL1, streamInfo.BackupURL2, streamInfo.BackupURL3} {
 
-		if len(backupURL) == 0 {
+		if len(backupURL) == 0 || backupURL == primary {
 			continue
 		}
 
 		if isStreamURLReachable(backupURL) {
-			return backupURL
+
+			reachableBackups = append(reachableBackups, backupURL)
+
+			if activeClientConnections(backupURL) == 0 {
+				return backupURL
+			}
+
 		}
 
 	}
 
-	return streamInfo.URL
+	if len(reachableBackups) == 0 {
+		return primary
+	}
+
+	sort.SliceStable(reachableBackups, func(i, j int) bool {
+		return activeClientConnections(reachableBackups[i]) < activeClientConnections(reachableBackups[j])
+	})
+
+	return reachableBackups[0]
 }
 
 func createStreamID(stream map[int]ThisStream) (streamID int) {

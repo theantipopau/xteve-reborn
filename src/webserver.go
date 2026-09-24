@@ -165,15 +165,18 @@ func Stream(w http.ResponseWriter, r *http.Request) {
 		streamInfo.URL = fmt.Sprintf("http://%s/udp/%s/", Settings.UDPxy, strings.TrimPrefix(streamInfo.URL, "udp://@"))
 	}
 
-	// Only channels with at least one backup configured pay for a
-	// reachability check; every other channel keeps the exact same
+	// Only channels with at least one backup configured pay for the
+	// pre-flight probes; every other channel keeps the exact same
 	// single-connection fast path it always had.
 	if len(streamInfo.BackupURL1) > 0 || len(streamInfo.BackupURL2) > 0 || len(streamInfo.BackupURL3) > 0 {
 
 		var chosenURL = resolveReachableStreamURL(streamInfo)
 		if chosenURL != streamInfo.URL {
+			// Covers both failover (primary unreachable) and load-aware
+			// selection (primary already serving streams, an idle backup
+			// exists).
 			showWarning(4007)
-			showInfo(fmt.Sprintf("Backup Channel:%s - Using:%s", streamInfo.Name, chosenURL))
+			showInfo(fmt.Sprintf("Stream Source:%s (%d active) - Using:%s", streamInfo.Name, activeClientConnections(chosenURL), chosenURL))
 		}
 		streamInfo.URL = chosenURL
 

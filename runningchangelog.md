@@ -12,6 +12,38 @@ being worked on), and say plainly what has *not* been verified yet.
 
 ---
 
+## Unreleased
+
+### Load-aware backup selection (idea credited to c0y0t3d3n/iptv)
+
+A user of the launch post pointed at their own tuner ([c0y0t3d3n/iptv](https://github.com/c0y0t3d3n/iptv)),
+whose best idea is provider selection by *most free connections* rather than first response. Backup
+channels now do the same, within what a plain-M3U proxy can know:
+
+- A healthy **and idle** primary still wins after a single probe — that fast path costs exactly what the
+  old first-responder behavior cost, so nothing got slower.
+- If the primary is down **or already serving streams**, the first reachable source with no active viewers
+  wins. With several providers offering the same channel, this stops piling viewers onto one account until
+  the provider cuts it off for too many connections.
+- If every reachable source is busy, the one with the fewest active viewers wins (deterministic order).
+- Nothing reachable: the primary is returned unchanged, exactly as before.
+
+Counts come from the buffer's `BufferClients` registry (per playlist + URL hash), which is what
+`killClientConnection` decrements on disconnect — the only signal that tracks *live* load; this instance
+only, not the provider's account-wide count (that would need Xtream Codes support). `activeClientConnections`
+sums `ClientConnection.Connection` values across playlists sharing a URL hash. A pre-existing fast path
+was also preserved deliberately: the least-loaded sort only runs when no idle source exists, and the
+warning reworded (4007) since the primary is no longer necessarily unreachable when a switch happens —
+the UI's backup-channel description updated accordingly (bundle regenerated, byte-identical rule holds).
+
+**Verified:** 7 failover tests pass (3 pre-existing, 3 new for idle-preference, dead-primary and
+least-loaded paths, plus the reachability checks); gofmt/vet/build clean; full suite green. `go test
+-race` still CI-only (no local cgo). **Not verified:** against real multi-account providers; duplicate
+backup URLs equal to the primary are skipped, but same-channel-different-URL dedup across playlists is
+left to the operator.
+
+---
+
 ## 3.0.2 — published, then corrected; and the Jellyfin workflow's first real run
 
 ### Release and push

@@ -350,7 +350,7 @@ func getErrMsg(errCode int) (errMsg string) {
 	case 4006:
 		errMsg = fmt.Sprintf("Server connection timeout")
 	case 4007:
-		errMsg = fmt.Sprintf("Primary channel unreachable, switched to a backup channel")
+		errMsg = fmt.Sprintf("Primary stream busy or unreachable, serving the channel from another source")
 
 	// Buffer (M3U8)
 	case 4050:
