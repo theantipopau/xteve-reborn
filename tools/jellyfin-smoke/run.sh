@@ -201,8 +201,9 @@ fi
 info "Jellyfin accepted and persisted xteve-reborn as an HDHomeRun tuner"
 
 # Informational: a populated lineup needs a configured provider source, which
-# this script doesn't set up (see the header). Report either way.
-CHANNELS="$(curl -fsS "http://127.0.0.1:${JF_PORT}/LiveTv/Channels" -H "Authorization: ${AUTH}" | jq 'length' 2>/dev/null || echo 0)"
+# this script doesn't set up (see the header). Report either way. The response
+# is an object with Items, not a bare array.
+CHANNELS="$(curl -fsS "http://127.0.0.1:${JF_PORT}/LiveTv/Channels" -H "Authorization: ${AUTH}" | jq '.Items | length' 2>/dev/null || echo 0)"
 info "Jellyfin reports ${CHANNELS} channel(s)"
 if [ "$CHANNELS" -eq 0 ]; then
   echo "    (expected without a configured M3U/XMLTV source; the lineup and guide"
@@ -363,12 +364,16 @@ fi
 
 JF_CHANNELS=0
 for _ in $(seq 1 30); do
-  JF_CHANNELS="$(curl -fsS "http://127.0.0.1:${JF_PORT}/LiveTv/Channels" -H "Authorization: ${AUTH}" | jq 'length' 2>/dev/null || echo 0)"
+  # /LiveTv/Channels returns an object with Items (and TotalRecordCount),
+  # not a bare array - count the items, not the response.
+  JF_CHANNELS="$(curl -fsS "http://127.0.0.1:${JF_PORT}/LiveTv/Channels" -H "Authorization: ${AUTH}" \
+    | jq '.Items | length' 2>/dev/null || echo 0)"
   [ "$JF_CHANNELS" -ge 1 ] && break
   sleep 3
 done
 [ "$JF_CHANNELS" -ge 1 ] || fail "Jellyfin never imported the seeded channel"
-JF_CHANNEL_NAME="$(curl -fsS "http://127.0.0.1:${JF_PORT}/LiveTv/Channels" -H "Authorization: ${AUTH}" | jq -r '.[0].Name // empty')"
+JF_CHANNEL_NAME="$(curl -fsS "http://127.0.0.1:${JF_PORT}/LiveTv/Channels" -H "Authorization: ${AUTH}" \
+  | jq -r '.Items[0].Name // empty')"
 info "Jellyfin imported ${JF_CHANNELS} channel(s): '$JF_CHANNEL_NAME'"
 
 # Jellyfin's Live TV program guide refresh is scheduled and lazy; the channel
