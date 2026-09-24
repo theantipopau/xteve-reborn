@@ -28,9 +28,10 @@ correct; the tag's source archive, and the GHCR container built from that tag, w
   it. Once CI could publish, it replaced the manually-uploaded assets with builds from the
   tagged commit (`-trimpath -ldflags "-s -w ..."`, ~5.9 MB against the build script's ~10.5 MB
   unstripped).
-- **Follow-up:** `tools/release/build-release.ps1` passes neither `-s -w` nor `-trimpath`, so
-  it no longer produces artifacts comparable to CI's. Align it or retire it now that releases
-  are built from the tag.
+- **Follow-up, resolved:** `tools/release/build-release.ps1` passed neither `-s -w` nor
+  `-trimpath`, so it no longer produced artifacts comparable to CI's. Retired it (deleted) —
+  `release.yml` is now the only way a release gets built, so there's no manual path left to
+  drift out of sync with it.
 
 ### Bugs the first real CI runs found
 1. **`/lineup.json` served `null` with no channels.** `getLineup` used `var lineup Lineup`,
@@ -96,7 +97,7 @@ working tree; unticked = needs a human action outside it.
 - [x] `src/webUI.go` regenerated and byte-identical on re-run (CI's sync check will pass)
 - [x] All 4 workflow YAMLs parse; `tools/jellyfin-smoke/run.sh` passes `bash -n`
 - [x] No temp/scratch files left in the tree
-- [ ] `go test -race ./...` — **could not run here** (no C toolchain for cgo); CI runs it
+- [x] `go test -race ./...` — verified in the post-release audit below (MinGW gcc); CI also runs it
 
 **Verified by actually running it**
 - [x] App boots and reports `3.0.2.0302` (`-info`, and `/discover.json` FirmwareVersion)
@@ -445,9 +446,8 @@ cannot access the file because it is being used by another process"; after the f
 it passes cleanly and the guide content assertions hold. `go test ./...`,
 `go vet`, `gofmt` clean.
 
-**Not verified:** `go test -race` could not run in this environment (no C toolchain
-for cgo); CI runs it. The change adds no concurrency, so no race-safety impact is
-expected.
+**Verified after the fact:** `go test -race ./...` passes on this working tree (run with
+MinGW gcc on `PATH`/`CC` for cgo) — see the post-release audit entry below.
 
 ---
 
@@ -459,12 +459,40 @@ expected.
 | `go vet ./...` | pass |
 | `go build ./...` | pass |
 | `go test ./...` | pass (incl. 3 new Jellyfin tests) |
-| `go test -race ./...` | not run here (no gcc); runs in CI |
+| `go test -race ./...` | not run here (no gcc); runs in CI — verified locally in a later pass (below) |
 | embedded bundle idempotent + in sync | yes (51 → 41 entries) |
 | app serves `/web/` + all referenced assets | yes, verified over HTTP |
 | release artifact consumable by updater | yes, verified against real updater code |
 | `docker build` / healthcheck actually reported healthy | not run here |
 | Jellyfin container workflow executed | not run here |
+
+---
+
+## Post-release audit (main @ `af0165e`)
+
+Went through everything committed since 3.0.1 — the 3.0.2 work, the release-workflow and
+`/lineup.json` fixes, and the five Jellyfin-workflow debugging commits — to confirm the repo
+is actually in the state the release notes and changelog claim before opening it up to real
+users.
+
+- `git log`, `gh run list`: `CI`, `Docker` and `Jellyfin` all green on the tip of `main`.
+  `Jellyfin` last ran (and passed) on `97e1722`; the two commits after it are docs-only, so it
+  correctly didn't re-trigger (path-filtered).
+- `gh release view v3.0.2`: all 5 zips + `xteve-reborn_3.0.2_checksums.txt` present, tag now
+  correctly points at `4d97768` (post-fix), matching the earlier note that a stale build had
+  briefly been published against `bfc8f4e`.
+- `gofmt -l .`: clean. `go vet ./...`: clean.
+- `CGO_ENABLED=1 go test -race ./...` (MinGW gcc on `PATH` + `CC`): **passes**, all packages —
+  closes the one item CI-only had left unverified locally.
+- Retired `tools/release/build-release.ps1` (see the follow-up note above): superseded by
+  `release.yml`, and its continued presence was the exact kind of "two build paths that can
+  drift apart" risk that caused the `bfc8f4e` mismatch in the first place.
+- **Still not independently verified:** the Docker `HEALTHCHECK` reporting `healthy` (no local
+  Docker daemon available in this environment), and GHCR's `v3.0.2` tag content (no
+  `read:packages` scope on the available `gh` token). Both are lower-risk than they sound:
+  the `Docker` workflow does start the built image and probe HTTP endpoints every push, and
+  the image is built by the same CI job that produces the (verified) zip assets from the same
+  commit.
 
 ## Follow-ups this left open
 
