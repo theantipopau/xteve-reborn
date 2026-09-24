@@ -162,14 +162,33 @@ AUTH="${AUTH_BASE}, Token=\"${TOKEN}\""
 # 4. Add the app as a tuner, and confirm Jellyfin keeps it.
 # ---------------------------------------------------------------------------
 info "registering the app as an hdhomerun tuner"
-curl -fsS -X POST "http://127.0.0.1:${JF_PORT}/LiveTv/TunerHosts" \
+CREATED="$(curl -fsS -X POST "http://127.0.0.1:${JF_PORT}/LiveTv/TunerHosts" \
   -H 'Content-Type: application/json' -H "Authorization: ${AUTH}" \
-  -d "{\"Type\":\"hdhomerun\",\"Url\":\"http://127.0.0.1:${APP_PORT}\",\"FriendlyName\":\"xteve-reborn\",\"TunerCount\":2}" \
-  | jq -e '.Id' >/dev/null || fail "Jellyfin rejected the tuner host"
+  -d "{\"Type\":\"hdhomerun\",\"Url\":\"http://127.0.0.1:${APP_PORT}\",\"FriendlyName\":\"xteve-reborn\",\"TunerCount\":2}")" \
+  || fail "Jellyfin rejected the tuner host"
+[ -n "$(echo "$CREATED" | jq -r '.Id // empty')" ] \
+  || fail "Jellyfin accepted the request but returned no tuner id"
+info "Jellyfin created tuner host $(echo "$CREATED" | jq -c '{Id,FriendlyName,Url}')"
 
-curl -fsS "http://127.0.0.1:${JF_PORT}/LiveTv/TunerHosts" -H "Authorization: ${AUTH}" \
-  | jq -e ".[] | select(.Url | test(\":${APP_PORT}\"))" >/dev/null \
-  || fail "the tuner was not present in Jellyfin's tuner list afterwards"
+# The POST answers as soon as the host is accepted, but the list served
+# afterwards is rebuilt from Jellyfin's saved configuration, so poll it rather
+# than reading once and calling it absent. .Url is guarded against null because
+# Jellyfin reports hosts of its own with no Url.
+FOUND_TUNER=""
+for _ in $(seq 1 10); do
+  if curl -fsS "http://127.0.0.1:${JF_PORT}/LiveTv/TunerHosts" -H "Authorization: ${AUTH}" \
+    | jq -e --arg want ":${APP_PORT}" '.[] | select((.Url // "") | test($want))' >/dev/null 2>&1; then
+    FOUND_TUNER=1
+    break
+  fi
+  sleep 3
+done
+if [ -z "$FOUND_TUNER" ]; then
+  echo "tuner list as Jellyfin reports it:" >&2
+  curl -fsS "http://127.0.0.1:${JF_PORT}/LiveTv/TunerHosts" -H "Authorization: ${AUTH}" >&2 || true
+  echo >&2
+  fail "the tuner was not present in Jellyfin's tuner list afterwards"
+fi
 info "Jellyfin accepted xteve-reborn as an HDHomeRun tuner"
 
 # Informational: a populated lineup needs a configured provider source, which
