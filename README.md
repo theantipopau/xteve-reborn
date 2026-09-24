@@ -135,7 +135,8 @@ are the per-change detail, including how each fix was verified, and
   and CI fails the build if it drifts again.
 * **Jellyfin is a first-class target** — it speaks the same HDHomeRun tuner protocol Plex and Emby
   do, and a contract suite now pins the discovery fields, lineup shape and generated XMLTV structure
-  it depends on.
+  it depends on. A container-based end-to-end check drives a real Jellyfin through its own setup
+  wizard and API, adds this app as a tuner and confirms it persists.
 * **Releases are built by CI** from the tag across all five platforms, with the checksums file
   generated automatically, instead of from one Windows machine.
 * Removed roughly 4,000 lines of dead legacy JavaScript that was still being embedded into every
@@ -472,8 +473,10 @@ No settings or data format changes — safe to drop in over an existing install 
   source changes.
 * **Jellyfin is covered by tests now.** A contract suite pins the HDHomeRun discovery fields,
   lineup entry shape and generated XMLTV guide structure Jellyfin depends on, and runs in CI on
-  every push. A container-based end-to-end check against a real Jellyfin is also in the repo —
-  see the Jellyfin notes under Requirements.
+  every push. A container-based end-to-end check also drives a real Jellyfin through its own setup
+  wizard and API, adds this app as a tuner and confirms it keeps it — and it earned its keep on its
+  first green run, by catching `/lineup.json` answering `null` instead of `[]` on an install with no
+  provider source configured yet.
 * **Releases are built by CI.** Tagging a `v*` release now builds all five platforms, packages
   the zips and generates the checksums file automatically, replacing a manual, Windows-only
   build script.
@@ -496,10 +499,11 @@ No settings or data format changes — safe to drop in over an existing install 
 * Jellyfin Client with Live TV support
 * Add xteve-reborn as a Live TV tuner source of type "HDHomeRun" — the HDHomeRun tuner protocol
   this project emulates is a de facto standard, so Jellyfin detects it the same way Plex and Emby
-  do. The tuner contract and the generated XMLTV guide are covered by tests that run in CI; a
-  container-based end-to-end check against a real Jellyfin
-  (`.github/workflows/jellyfin.yml`) is also in the repo, but has not been run yet — so please
-  open an issue if you hit anything Jellyfin-specific.
+  do. The tuner contract and the generated XMLTV guide are covered by tests that run in CI, and
+  `.github/workflows/jellyfin.yml` drives a real Jellyfin container through its own setup wizard
+  and API to confirm it accepts this app as a tuner and keeps it. Neither exercises a populated
+  channel lineup or a playable stream — those need a real provider source — so please open an
+  issue if you hit anything Jellyfin-specific.
 
 --- 
 

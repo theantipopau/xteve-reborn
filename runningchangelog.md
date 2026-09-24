@@ -12,6 +12,74 @@ being worked on), and say plainly what has *not* been verified yet.
 
 ---
 
+## 3.0.2 — published, then corrected; and the Jellyfin workflow's first real run
+
+### Release and push
+This is where the 3.0.2 work was first committed — it had sat uncommitted through the whole
+prep pass, and that mattered. A release had already been published from the GUI against a
+`v3.0.2` tag pointing at `bfc8f4e`, a commit whose `xteve.go` still said
+`Version = "3.0.1.0301"`. The attached binaries were built from the working tree and were
+correct; the tag's source archive, and the GHCR container built from that tag, were not.
+
+- Committed the work as `c0dff80` (31 files, +1634/−4155) and force-moved `v3.0.2` onto it.
+- `release.yml` and `jellyfin.yml` were **untracked**, so GitHub had neither — the release
+  workflow could not have run for any tag. Both are live now.
+- Re-tagged once more after the `/lineup.json` fix (`4d97768`) so the shipped binaries carry
+  it. Once CI could publish, it replaced the manually-uploaded assets with builds from the
+  tagged commit (`-trimpath -ldflags "-s -w ..."`, ~5.9 MB against the build script's ~10.5 MB
+  unstripped).
+- **Follow-up:** `tools/release/build-release.ps1` passes neither `-s -w` nor `-trimpath`, so
+  it no longer produces artifacts comparable to CI's. Align it or retire it now that releases
+  are built from the tag.
+
+### Bugs the first real CI runs found
+1. **`/lineup.json` served `null` with no channels.** `getLineup` used `var lineup Lineup`,
+   and a nil slice marshals to `null` — the HDHomeRun protocol defines the endpoint as a JSON
+   array. Easiest to hit on a fresh install with no provider source, which is exactly what the
+   Jellyfin container does. Fixed by initialising to `Lineup{}`, with
+   `TestJellyfinEmptyLineupIsArray`; verified by temporarily reverting it, which fails with
+   "= null, want []".
+2. **`release.yml` could never have published anything.** Its zip step wrote into `dist/`
+   without creating it, so all five build jobs exited 15 ("zip I/O error: No such file or
+   directory"). Added `mkdir -p`.
+3. **The publish step was not idempotent.** A re-pushed tag would have failed on "release
+   already exists"; it now edits the notes and uploads with `--clobber`.
+4. **`run.sh` was committed `100644`**, so CI could not invoke it at all (exit 126).
+
+### First real run of the Jellyfin workflow
+It had never been executed. It took four failures to go green, each a different cause.
+
+The notable one: **`GET /LiveTv/TunerHosts` does not exist in Jellyfin 10.9 and answers
+405**, which `curl -f` turns into a silent failure that looks exactly like "the tuner was not
+persisted". The tuner had in fact been created — the POST returned our URL and an id. Two of
+the four cycles were spent guessing at this before a diagnostic dump showed the 405. The
+check now reads `/System/Configuration/livetv` and walks the document for any object whose
+`Url` is ours.
+
+Also fixed en route:
+- **Retry the startup wizard.** A cold Jellyfin answers `/System/Info/Public` long before it
+  is ready, so the first `/Startup/Configuration` POST 500s.
+- **Call `GET /Startup/User` before `POST /Startup/User`.** The POST updates the *first* user,
+  which does not exist yet on a new server; the GET is what runs `userManager.InitializeAsync()`
+  and creates it. Jellyfin's own source marks that endpoint "TODO: Remove this method when
+  startup wizard no longer requires an existing user."
+- Dump `docker logs` and the offending response body on failure. Every one of the four
+diagnoses came from that, not from reasoning about the API.
+
+**Verified green:** `Jellyfin`, `CI` and `Docker` all pass on `97e1722`.
+
+### Release artifacts re-verified once CI took over
+`sha256sum -c` passes against the published checksums for all five zips; each contains exactly
+one entry at the zip root (`xteve-reborn`, `xteve-reborn.exe` on Windows); and the CI
+binaries carry both `3.0.2.0302` and `ReleaseTag=v3.0.2`. The release body is
+`tools/release/notes-v3.0.2.md`, kept in sync by the workflow's `edit` path on re-runs.
+
+**Still not verified:** the `HEALTHCHECK` reporting `healthy` has never been observed
+directly. The Docker workflow builds the image and starts it to smoke-test the entrypoint,
+which is stronger than nothing, but not the same as reading the health status.
+
+---
+
 ## 3.0.2 — release checklist
 
 State of the release as prepared for a `3.0.2` tag. Ticked = actually verified in this
@@ -41,13 +109,12 @@ working tree; unticked = needs a human action outside it.
 - [x] Jellyfin contract tests pass
 
 **Still open before tagging (not done here)**
-- [ ] Run `.github/workflows/jellyfin.yml` once for real. The pinned
-      `jellyfin/jellyfin:10.9.11` tag is confirmed to exist on Docker Hub, so what's left
-      is validating the Jellyfin API paths against a live instance; then consider adding a
-      `pull_request` trigger
+- [x] Run `.github/workflows/jellyfin.yml` once for real — green on `97e1722` after four
+      failures, one of which was a real bug in the app (see above). Adding a `pull_request`
+      trigger is now the remaining step, once it's stayed green over a Jellyfin release or two
 - [ ] `docker build .` and confirm the new `HEALTHCHECK` reports `healthy`
-- [ ] Commit — nothing from these sessions is staged or committed
-- [ ] Tag `v3.0.2` and push; the new release workflow builds and publishes the assets
+- [x] Commit — `c0dff80`, `907dca1`, `4d97768`, `88a9fb0`, `9ad9669`, `cadd469`, `97e1722`
+- [x] Tag `v3.0.2` and push; the release workflow built and published the assets
 - [ ] Optionally comment on the live subreddit threads: the posted text predates the
       light theme and accessibility work
 
@@ -331,22 +398,28 @@ attached to the wrong channel id isn't an error, it just shows as "no guide data
 **Verified:** The three Go tests pass (`go test ./src/ -run 'TestJellyfin|TestXMLTVGuide'`),
 and run in the existing CI. `run.sh` passes `bash -n`; the workflow parses as YAML.
 
-**Not verified / known limits — read before trusting the workflow:**
-- The container workflow has never been run. It's deliberately *not* wired to
-  `pull_request` yet so it can't gate merges until it's proven green on `main` over
-  a Jellyfin release or two.
+**Update — the workflow has now actually run, and passes.** See
+"First real run of the Jellyfin workflow" below: it failed four times before going
+green, three of those for reasons in the workflow itself and one of them a real bug
+in the app. What follows is what was still unknown when it was written.
+
+**Known limits — read before trusting the workflow:**
+- It has one green run on `main` (`97e1722`). It's still deliberately *not* wired to
+  `pull_request`, and should be proven green across a Jellyfin release or two before
+  it gates merges.
 - `JF_IMAGE` is pinned to `jellyfin/jellyfin:10.9.11`. **Verified to exist** on Docker Hub
   via its tags API (multi-arch: amd64, arm/v7, arm64; still being pulled), so the pin
   itself is sound and `docker pull` won't fail on a missing tag. It is, however, a
   September 2024 release, so moving to a current Jellyfin is a deliberate follow-up —
-  and doing so would also re-check the API shapes noted below.
+  and doing so would also re-check the API shapes below.
 - The exact Jellyfin API paths/shapes used (`/Startup/*`,
   `/Users/AuthenticateByName`, `POST /LiveTv/TunerHosts`) are best-effort from the
-  published API and may need adjusting against a live instance.
+  published API. `GET /LiveTv/TunerHosts` does **not** exist in 10.9 (405); the check
+  reads `/System/Configuration/livetv` instead.
 - The workflow covers discovery + tuner registration, **not** a populated lineup or
   a stream fetch. Doing that needs a seeded provider source (an M3U entry in
-  `settings.json` plus an active mapped channel), which can't be validated without
-  a live run — so the lineup and guide shapes are covered by the Go tests instead.
+  `settings.json` plus an active mapped channel), so the lineup and guide shapes are
+  covered by the Go tests instead.
   Extending the workflow to assert channels/streams once it's green is the obvious
   follow-up.
 

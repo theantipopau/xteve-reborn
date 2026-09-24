@@ -39,7 +39,9 @@ colour scheme rather than a redesign. There is no in-app toggle — change it in
   bundler walks the whole `html/` folder.
 - A Jellyfin contract suite pins the HDHomeRun discovery fields, lineup entry shape and generated
   XMLTV guide structure Jellyfin depends on, and runs in CI on every push. A container-based
-  end-to-end check against a real Jellyfin is also in the repo, but has not been run yet.
+  end-to-end check drives a real Jellyfin through its own setup wizard and API too — it earned its
+  keep immediately, by catching `/lineup.json` answering `null` instead of `[]` on an install with
+  no provider source configured yet.
 - Releases are built by CI from the tag, replacing a manual, Windows-only build script.
 
 ### Upgrading
