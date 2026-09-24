@@ -170,26 +170,30 @@ CREATED="$(curl -fsS -X POST "http://127.0.0.1:${JF_PORT}/LiveTv/TunerHosts" \
   || fail "Jellyfin accepted the request but returned no tuner id"
 info "Jellyfin created tuner host $(echo "$CREATED" | jq -c '{Id,FriendlyName,Url}')"
 
-# The POST answers as soon as the host is accepted, but the list served
-# afterwards is rebuilt from Jellyfin's saved configuration, so poll it rather
-# than reading once and calling it absent. .Url is guarded against null because
-# Jellyfin reports hosts of its own with no Url.
+# Verify it stuck. There is no GET on /LiveTv/TunerHosts in 10.9 - reading it
+# back with GET answers 405 - so read the Live TV configuration the POST
+# actually writes to instead. The lookup walks the whole document for any
+# object whose Url is ours rather than naming a property, so it does not
+# depend on the wrapper getting that name right.
 FOUND_TUNER=""
+CONFIG_DUMP=""
 for _ in $(seq 1 10); do
-  if curl -fsS "http://127.0.0.1:${JF_PORT}/LiveTv/TunerHosts" -H "Authorization: ${AUTH}" \
-    | jq -e --arg want ":${APP_PORT}" '.[] | select((.Url // "") | test($want))' >/dev/null 2>&1; then
+  CONFIG_DUMP="$(curl -fsS "http://127.0.0.1:${JF_PORT}/System/Configuration/livetv" \
+    -H "Authorization: ${AUTH}" 2>/dev/null || true)"
+  if echo "$CONFIG_DUMP" | jq -e --arg want "http://127.0.0.1:${APP_PORT}" \
+    '[.. | objects | select(.Url? == $want)] | length > 0' >/dev/null 2>&1; then
     FOUND_TUNER=1
     break
   fi
   sleep 3
 done
 if [ -z "$FOUND_TUNER" ]; then
-  echo "tuner list as Jellyfin reports it:" >&2
-  curl -fsS "http://127.0.0.1:${JF_PORT}/LiveTv/TunerHosts" -H "Authorization: ${AUTH}" >&2 || true
+  echo "Live TV configuration as Jellyfin reports it:" >&2
+  echo "$CONFIG_DUMP" >&2
   echo >&2
-  fail "the tuner was not present in Jellyfin's tuner list afterwards"
+  fail "the tuner was not present in Jellyfin's Live TV configuration afterwards"
 fi
-info "Jellyfin accepted xteve-reborn as an HDHomeRun tuner"
+info "Jellyfin accepted and persisted xteve-reborn as an HDHomeRun tuner"
 
 # Informational: a populated lineup needs a configured provider source, which
 # this script doesn't set up (see the header). Report either way.
