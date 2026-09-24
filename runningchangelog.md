@@ -71,7 +71,13 @@ repo setting, not a workflow.
 
 ---
 
-## Unreleased → 3.0.3
+## 3.0.3 — released
+
+Tagged `v3.0.3` on `97fbbdc` and published by the release workflow with all six assets (checksums
+verified, zip roots correct, binaries carry `3.0.3.0303`). The Jellyfin workflow's first phase-2 run
+failed on one real finding: `/LiveTv/Channels` returns `{Items: [...]}`, not a bare array — fixed in
+that same commit, now green. The multi-arch GHCR build for the tag completed (about six minutes, arm64
+under QEMU).
 
 ### Auto-fill backup channels across providers (bulk action)
 

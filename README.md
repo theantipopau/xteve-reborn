@@ -655,10 +655,11 @@ MIT — see [`LICENSE`](LICENSE), inherited unchanged from upstream xTeVe.
 
 ## Credits
 
-* [c0y0t3d3n/iptv](https://github.com/c0y0t3d3n/iptv) — for the load-aware source-selection idea: when the
-  same channel is available from several providers, prefer the account with the most free connections
-  instead of the first one that answers. Their tuner ([@c0y0t3d3n](https://github.com/c0y0t3d3n)) targets
-  Plex with provider-side EPG and no XMLTV; the idea ports cleanly to xTeVe Reborn's XMLTV-based, M3U-driven
-  failover.
+* [c0y0t3d3n/iptv](https://github.com/c0y0t3d3n/iptv) — for two ideas: load-aware source selection (when
+  the same channel is available from several providers, prefer the account with the most free connections
+  instead of the first one that answers) and auto-merging lineups across providers once channels are
+  matched by name — adapted here as the dashboard's "Fill backups from other providers" action. Their tuner
+  ([@c0y0t3d3n](https://github.com/c0y0t3d3n)) targets Plex with provider-side EPG and no XMLTV; both ideas
+  port cleanly to xTeVe Reborn's XMLTV-based, M3U-driven failover.
 * [Threadfin](https://github.com/Threadfin/Threadfin) — backup/failover channels and Jellyfin support.
 * [xTeVe](https://github.com/xteve-project/xTeVe) — the original project, by [saroxan](https://github.com/saroxan).
