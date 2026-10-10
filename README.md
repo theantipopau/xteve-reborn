@@ -238,7 +238,7 @@ it would change without saving anything.
 
 ---
 
-## What's different from upstream xTeVe (v3.0.2)
+## What's different from upstream xTeVe (v3.0.5)
 
 Upstream's last tagged release was `2.2.0`, from 2021. Everything below is new in this fork — the
 per-change detail behind the highlights above, kept in the order it landed.
@@ -641,7 +641,7 @@ No settings or data format changes — safe to drop in over an existing install 
 ## Downloads
 Prebuilt binaries (Windows/Linux/macOS, amd64+arm64) are published on the
 [Releases page](https://github.com/theantipopau/xteve-reborn/releases). The current release is
-`3.0.2`. Each release includes an `xteve-reborn_<version>_checksums.txt` file of SHA-256 hashes, and
+`3.0.5`. Each release includes an `xteve-reborn_<version>_checksums.txt` file of SHA-256 hashes, and
 is built by CI (`.github/workflows/release.yml`) rather than by hand. You can also build from
 source (below).
 
