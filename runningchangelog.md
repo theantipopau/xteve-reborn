@@ -12,6 +12,54 @@ being worked on), and say plainly what has *not* been verified yet.
 
 ---
 
+## Unreleased — issue triage (#2, #3)
+
+### XMLTV channel mapping lists nothing (#2)
+
+The guide dropdown in the mapping popup took each option's value from `getValueFromProviderFile(..., "file.xteve")`.
+That key is `"file." + System.AppName`, and `AppName` is `xteve-reborn` in this fork, so the lookup returned
+`undefined` for every XMLTV file. The saved value became the string `"undefined"`, and `getPrograms` then called
+`getObjKeys(undefined)` and threw. The channel list stayed empty and the user saw an error, which is the report.
+
+Fix: the option value is now the file's basename, the same key `xmltvMap` and the backend already use
+(`ts/menu_ts.ts`, mirrored by hand into `html/js/menu_ts.js`, since there is no `tsc` on this machine).
+Existing mappings saved as `undefined` need the guide re-selected once.
+
+**Verified:** ran the compiled `menu_ts.js` in a Node VM with a stub DOM against a sample server state. Before:
+the guide option value is `"undefined"` and `getPrograms` throws. After: the value is `"X1.xml"` and the channel
+list is populated. Embedded bundle regenerated and idempotent; full `go test` suite green.
+**Not verified:** clicked through in a real browser against a live provider.
+
+### Probe rejects non-TS 200 responses (#3 §2)
+
+`isStreamURLReachable` returned true on any 200. It now reads the first packet boundaries of the body and
+requires the MPEG-TS sync byte (`0x47`) at each 188-byte boundary it received. A provider's HTML redirect or
+error page with a 200 status no longer wins failover. An empty or stalled body keeps the old status-only answer,
+and `.m3u8` URLs are exempt because HLS playlists are not TS. The read is bounded by a 5 s context.
+Covered by `TestIsStreamURLReachable` (HTML rejected, TS accepted, HLS accepted).
+
+**Not caught:** a connection-cap card that the provider sends as valid TS on a 200 (the report's second case). That needs
+content-level detection and is not in this change.
+
+### Docs from #3 §5
+
+README now notes the Plex start-order problem (Plex checks the tuner once at startup), the Jellyfin Live TV stall
+and its `AllowStreamSharing=false` workaround (upstream jellyfin/jellyfin#17319, closed upstream), and the Plex
+Desktop AAC transcoder crash as reported.
+
+### Known, not yet done (from #3, roughly by value)
+
+1. Cold tune: the first press often fails because Plex gives up after ~6 s with no bytes. A "tuning in" TS bootstrap
+   could hold the connection. The reporter found that Plex rejects synthetic bootstraps unless audio leads the mux,
+   so this needs real work and a real Plex test, not a quick patch.
+2. Audio: serve AC3 (or MP2) from the tuner, or add a "re-encode audio to AC3 for Plex" option, to avoid the Plex
+   Desktop AAC crash. Browser clients cannot decode AC3, so this has a cost.
+3. Warm joins start mid-GOP, which shows as pixelation on direct-play clients. Fix: scan to the next SPS and start at
+   the preceding PAT.
+4. Connect-once: fold the probe into the real connection so a probe does not burn a provider slot on 1- or 2-slot accounts.
+
+---
+
 ## 3.0.4 — released
 
 Tagged `v3.0.4` on `1b1b3ce`, published by the release workflow with all six assets and marked

@@ -8,6 +8,7 @@ package src
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -34,7 +35,11 @@ func isStreamURLReachable(streamURL string) bool {
 		return false
 	}
 
-	req, err := http.NewRequest("GET", streamURL, nil)
+	// Bounded: the body read below has no other deadline.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "GET", streamURL, nil)
 	if err != nil {
 		return false
 	}
@@ -46,7 +51,25 @@ func isStreamURLReachable(streamURL string) bool {
 	}
 	defer resp.Body.Close()
 
-	return resp.StatusCode == http.StatusOK
+	if resp.StatusCode != http.StatusOK {
+		return false
+	}
+
+	// Providers answer 200 to an HTML redirect or error page too. Every 188-byte
+	// packet boundary in the first read must carry the MPEG-TS sync byte. HLS
+	// playlists are not TS, so they are exempt; an empty or stalled body keeps
+	// the status-only answer.
+	if strings.Contains(streamURL, ".m3u8") {
+		return true
+	}
+	head := make([]byte, 3*188)
+	n, _ := io.ReadAtLeast(resp.Body, head, 1)
+	for i := 0; i < n; i += 188 {
+		if head[i] != 0x47 {
+			return false
+		}
+	}
+	return true
 }
 
 // streamProbeTTL is how long a reachability probe result is trusted. A channel

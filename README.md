@@ -563,6 +563,10 @@ No settings or data format changes — safe to drop in over an existing install 
 * Plex Media Server (1.11.1.4730 or newer)
 * Plex Client with DVR support
 * Plex Pass
+* Plex Desktop can crash its transcoder on AAC audio from some providers (reported against
+  PMS 1.43.x on x64, see [issue #3](https://github.com/theantipopau/xteve-reborn/issues/3)).
+  Mobile clients are unaffected. If a desktop session ends right after it starts, the provider's
+  audio is the likely cause; this project does not transcode audio yet.
 
 ### Emby
 * Emby Server (3.5.3.0 or newer)
@@ -579,6 +583,11 @@ No settings or data format changes — safe to drop in over an existing install 
   and API to confirm it accepts this app as a tuner and keeps it. Neither exercises a populated
   channel lineup or a playable stream — those need a real provider source — so please open an
   issue if you hit anything Jellyfin-specific.
+* If one dead provider URL makes every Live TV channel open stall for up to 100 s, the cause is
+  Jellyfin holding a lock across the tuner open ([jellyfin/jellyfin#17319](https://github.com/jellyfin/jellyfin/issues/17319),
+  closed upstream, so check your version). Workaround: set `AllowStreamSharing` to `false` on this
+  tuner in Jellyfin's `livetv.xml`. Jellyfin then reads the stream URL directly. This app already
+  shares one provider connection across all viewers, so you lose only Jellyfin's local buffer.
 
 ---
 
@@ -640,6 +649,10 @@ The image defines a `HEALTHCHECK` that probes the tuner endpoint, so Docker, com
 just "the process started". It assumes the default port; if you change the app's port in
 Settings, set `XTEVE_REBORN_PORT` to match or the container will report unhealthy while still
 working.
+
+**Start order matters for Plex.** Plex checks the tuner once, when Plex Media Server starts. If
+this container comes up after Plex (common after a host reboot), Plex shows the DVR device as dead
+even though tuning works. Start this container before Plex, or restart Plex afterwards.
 
 A [`docker-compose.yml`](docker-compose.yml) example is in the repo. `--network host` (Linux only)
 gives Plex/Emby the best shot at auto-discovering the tuner over SSDP, since Docker's default

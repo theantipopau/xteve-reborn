@@ -1410,7 +1410,8 @@ var XMLTVFile = /** @class */ (function () {
         var text = new Array("-");
         for (var i = 0; i < fileIDs.length; i++) {
             if (fileIDs[i] != "xTeVe Dummy") {
-                values.push(getValueFromProviderFile(fileIDs[i], "xmltv", "file.xteve"));
+                // The stored key is the file's basename (see xmltvMap in xepg.go), not a provider field
+                values.push(fileIDs[i]);
                 text.push(getValueFromProviderFile(fileIDs[i], "xmltv", "name"));
             }
             else {

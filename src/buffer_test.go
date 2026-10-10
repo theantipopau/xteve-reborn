@@ -137,6 +137,39 @@ func TestIsStreamURLReachable(t *testing.T) {
 	if isStreamURLReachable("http://127.0.0.1:1/unreachable") {
 		t.Error("isStreamURLReachable() = true for an unreachable address, want false")
 	}
+
+	// A 200 whose body is not MPEG-TS (redirect/error page) is not a stream.
+	// A real TS body (three sync-byte packets) is.
+	html := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("<html><body>Too many connections</body></html>"))
+	}))
+	defer html.Close()
+
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		packets := make([]byte, 3*188)
+		for i := 0; i < len(packets); i += 188 {
+			packets[i] = 0x47
+		}
+		w.Write(packets)
+	}))
+	defer ts.Close()
+
+	if isStreamURLReachable(html.URL) {
+		t.Error("isStreamURLReachable() = true for a 200 HTML body, want false")
+	}
+	if !isStreamURLReachable(ts.URL) {
+		t.Error("isStreamURLReachable() = false for a 200 MPEG-TS body, want true")
+	}
+
+	// HLS playlists are not TS and must still pass on status alone.
+	hls := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte("#EXTM3U\n#EXTINF:10,\nseg.ts\n"))
+	}))
+	defer hls.Close()
+
+	if !isStreamURLReachable(hls.URL + "/live.m3u8") {
+		t.Error("isStreamURLReachable() = false for an HLS playlist, want true")
+	}
 }
 
 // newTestStreamInfoWithLoad builds a StreamInfo from a primary URL and optional
