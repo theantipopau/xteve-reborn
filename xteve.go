@@ -48,7 +48,7 @@ var ReleaseTag string
 const Name = "xTeVe-Reborn"
 
 // Version : Version, die Build Nummer wird in der main func geparst.
-const Version = "3.0.4.0304"
+const Version = "3.0.5.0305"
 
 // DBVersion : Datanbank Version
 const DBVersion = "2.1.0"

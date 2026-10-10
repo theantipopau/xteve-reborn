@@ -15,7 +15,8 @@ var Server = /** @class */ (function () {
                 return;
             }
             LOG_POLL_CONNECTION = true;
-        } else {
+        }
+        else {
             if (SERVER_CONNECTION == true) {
                 return;
             }
@@ -50,7 +51,8 @@ var Server = /** @class */ (function () {
             settled = true;
             if (isBackgroundPoll) {
                 LOG_POLL_CONNECTION = false;
-            } else {
+            }
+            else {
                 SERVER_CONNECTION = false;
                 showToast("xTeVe Reborn did not respond in time. Please try again.", "error");
             }
@@ -74,7 +76,8 @@ var Server = /** @class */ (function () {
             console.log("No websocket connection to xTeVe Reborn could be established. Check your network configuration.");
             if (isBackgroundPoll) {
                 LOG_POLL_CONNECTION = false;
-            } else {
+            }
+            else {
                 SERVER_CONNECTION = false;
             }
             showElement("loading", false);
@@ -90,7 +93,8 @@ var Server = /** @class */ (function () {
             window.clearTimeout(timeout);
             if (isBackgroundPoll) {
                 LOG_POLL_CONNECTION = false;
-            } else {
+            }
+            else {
                 SERVER_CONNECTION = false;
             }
             showElement("loading", false);

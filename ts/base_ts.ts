@@ -182,6 +182,36 @@ function showPopUpElement(elm) {
   return
 }
 
+// askConfirm asks in the page's own dialog instead of the blocking native
+// confirm(). onYes runs only when the confirming button is pressed.
+function askConfirm(message:string, yesLabel:string, onYes:() => void):void {
+
+  var box = document.getElementById("popup-custom")
+  box.innerHTML = ""
+
+  var text = document.createElement("P")
+  text.textContent = message
+  text.style.whiteSpace = "pre-line"
+  box.appendChild(text)
+
+  var cancel = document.createElement("INPUT")
+  cancel.setAttribute("type", "button")
+  cancel.setAttribute("value", "{{.button.cancel}}")
+  cancel.onclick = function() { showElement("popup", false) }
+  box.appendChild(cancel)
+
+  var yes = document.createElement("INPUT")
+  yes.setAttribute("type", "button")
+  yes.setAttribute("value", yesLabel)
+  yes.onclick = function() {
+    showElement("popup", false)
+    onYes()
+  }
+  box.appendChild(yes)
+
+  showPopUpElement("popup-custom")
+}
+
 function showElement(elmID, type) {
 
   var cssClass:string
@@ -653,6 +683,31 @@ function toggleChannelStatus(id:string) {
 
 }
 
+// autoFillBackups offers the server-side bulk action that fills every
+// channel's empty backup slots with the same channel from other providers.
+// The server replies with a summary (filled count or why nothing was filled)
+// that the dashboard shows as a toast; a guide rebuild runs automatically.
+// With dryRun the server only reports the plan - nothing is saved - so the
+// result can be inspected before it is applied.
+function autoFillBackups(overwrite:boolean, dryRun?:boolean) {
+
+  var request = new Object()
+  var options:string[] = []
+
+  if (overwrite == true) {
+    options.push("overwrite")
+  }
+  if (dryRun == true) {
+    options.push("dryrun")
+  }
+  if (options.length > 0) {
+    request["options"] = options
+  }
+
+  var server:Server = new Server("autoFillBackups")
+  server.request(request)
+}
+
 function restore() {
 
   if (document.getElementById('upload')) {
@@ -671,9 +726,7 @@ function restore() {
   restore.onchange = function() {
 
     var filename = (restore as HTMLInputElement).files[0].name
-    var check = confirm("File: " + filename + "\n{{.confirm.restore}}");
-
-    if (check == true) {
+    askConfirm("File: " + filename + "\n{{.confirm.restore}}", "{{.button.restore}}", function() {
 
       var reader  = new FileReader();
       var file = (document.querySelector('input[type=file]') as HTMLInputElement).files[0];
@@ -697,8 +750,7 @@ function restore() {
       }
 
       restore.remove()
-      return
-    }
+    })
 
   }
 

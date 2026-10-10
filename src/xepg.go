@@ -184,7 +184,7 @@ func createXEPGMapping() {
 
 			err = getLocalXMLTV(file, &xmltv)
 			if err != nil {
-				Data.XMLTV.Files = append(Data.XMLTV.Files, Data.XMLTV.Files[i+1:]...)
+				Data.XMLTV.Files = append(Data.XMLTV.Files[:i], Data.XMLTV.Files[i+1:]...)
 				var errMsg = err.Error()
 				err = errors.New(getProviderParameter(fileID, "xmltv", "name") + ": " + errMsg)
 				ShowError(err, 000)

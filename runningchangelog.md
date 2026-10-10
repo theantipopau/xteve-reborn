@@ -12,7 +12,71 @@ being worked on), and say plainly what has *not* been verified yet.
 
 ---
 
-## Unreleased — issue triage (#2, #3)
+## 3.0.5 — prepared, not yet tagged
+
+Version set to `3.0.5.0305` (`xteve.go`), release notes in `tools/release/notes-v3.0.5.md`, README and docs
+site updated. Tagging `v3.0.5` is the release step and has not been done.
+
+### Source drift: the shipped JS had changes the TypeScript did not
+
+While preparing this release, `html/js/*.js` was compared with a fresh compile of `ts/*.ts` (TypeScript
+5.6.3, fetched into the scratchpad only). Two features shipped in the compiled output but were missing from
+the sources, so a `compileJS.sh` run would have removed them:
+
+- `autoFillBackups` (3.0.3, "Fill backups" / "Preview backups" / "Rebuild backups") existed only in
+  `html/js/base_ts.js`.
+- The `plex.channel.limit` and `unfiltered.channel.limit` settings (3.0.4) existed only in
+  `html/js/settings_ts.js`.
+
+Both are now in `ts/base_ts.ts` and `ts/settings_ts.ts`. The `temp.path` placeholder pointed at a
+missing key (`tmpPath`); the key that exists is `tempPath`. All five compiled files were regenerated from
+the sources. The only other differences are compiler formatting (`} else {` style and a `__extends` helper).
+Type errors: the same three that HEAD already had; no new ones.
+
+**Verified:** `node --check` on every compiled file; `go run ./tools/verify-embedded-assets` regenerates the
+bundle; `gofmt`, `vet` and `go test ./...` pass.
+**Verified in a browser** (local test instance on port 34401, a local M3U and guide served over localhost,
+epgSource XEPG, Chrome driven through the Claude in Chrome tools):
+- The dashboard reports version 3.0.5 (0305), streams, and the "0 of 3 (none yet: try Fill backups)" hint.
+- XMLTV mapping (#2): the mapping popup's guide dropdown has `X1.xml`, not `undefined`, and the channel list
+  is populated with `ch1`, `ch3`, `ch2`, with `ch1` selected.
+- Unsaved settings: leaving Settings shows the in-page dialog ("You have unsaved settings. Discard them?",
+  Cancel/Discard). Cancel keeps the page and the dirty flag; Discard clears the flag and opens Mapping.
+- Delete playlist: "Delete this playlist?" with Cancel/Delete. Cancel leaves the playlist in place.
+- Dashboard sources text is set with `textContent`: a crafted `sources` value (markup in it) shows as text, no
+  element is created and no handler runs. Run by calling the page's `createLayout()` with a changed value, not
+  from a live failing provider, which did not reach the source status path in this test.
+
+### Fixes in this batch
+
+- **XMLTV slice removal** (`src/xepg.go`, `createXEPGMapping`). A failed XMLTV file was removed with
+  `append(Files, Files[i+1:]...)`, which kept the bad file and duplicated the tail. It is now
+  `append(Files[:i], Files[i+1:]...)`. A standalone check on the same list: before `[a.xml bad.xml c.xml c.xml]`,
+  after `[a.xml c.xml]`. Not covered by a Go test, because the function reloads its input from disk.
+- **Native confirm() replaced** with `askConfirm()` in `ts/base_ts.ts`, which uses the existing
+  `popup-custom` dialog. Converted: restore (`restore`), unsaved settings (`openThisMenu`), and delete
+  (`savePopupData`). The new `button.discard` label is in `html/lang/en.json`.
+- **Mapping popup guard**: `getPrograms` uses `xmltvMap[file] || {}`, so an unknown saved guide shows an
+  empty list instead of throwing.
+- **Dashboard text, not HTML**: `createLayout` writes server values with `textContent`. The "sources" value
+  names a failing provider, which is provider-controlled text. The M3U and XMLTV address strings (which
+  contain `<br>`) have no matching element on the dashboard, so nothing that used to render markup changes.
+- **Zero backups hint**: "Backups on: 0 of N" shows "(none yet: try Fill backups)" when N > 0.
+- **Server exited at startup on a broken playlist** (`src/data.go`, `buildDatabaseDVR`). A playlist whose
+  file could not be parsed set the function's named `err` and was removed from the list with
+  `append(playlistFile[:n], playlistFile[n+1:]...)` while the loop ranged over it, which also skipped
+  entries. When the broken playlist was the last one read, `err` was returned, `config.go` called
+  `ShowError` and `os.Exit(0)`. The parse error now lives in a local `parseErr`, and the broken file is
+  skipped with `continue`. The removal was not needed: `playlistFile` is only used by that loop.
+  Regression test `src/playlist_load_test.go` (`TestBuildDatabaseDVRSkipsBrokenPlaylist`): fails on HEAD with
+  "Broken: Local copy of the file no longer exists, want nil", passes with the fix.
+  This was found by running the 3.0.5 build with a deliberately broken provider.
+
+### Still open
+
+- A browser test of the dialogs, the dashboard, and the mapping popup on a running build from this tree.
+- The `-info` config-folder side effect, noted earlier, is not changed.
+
 
 ### XMLTV channel mapping lists nothing (#2)
 

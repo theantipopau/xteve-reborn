@@ -146,7 +146,7 @@
       fork of the original xTeVe — faster, safer, and kept current.
     </p>
     <div class="cta">
-      <a class="btn primary" href="https://github.com/theantipopau/xteve-reborn/releases/latest">Download 3.0.4</a>
+      <a class="btn primary" href="https://github.com/theantipopau/xteve-reborn/releases/latest">Download 3.0.5</a>
       <a class="btn ghost" href="https://github.com/theantipopau/xteve-reborn#highlights-what-this-fork-fixes-or-adds-over-upstream-xteve">What this fork fixes</a>
       <a class="btn ghost" href="https://github.com/theantipopau/xteve-reborn">Source on GitHub</a>
     </div>
@@ -209,26 +209,18 @@
 
 <section id="whatsnew">
   <div class="wrap">
-    <h2>What's new in 3.0.4</h2>
-    <p class="sub">Released as <code>v3.0.4</code> — a drop-in upgrade from 3.0.x; the in-app updater offers
-    it automatically.</p>
+    <h2>What's new in 3.0.5</h2>
+    <p class="sub">Released as <code>v3.0.5</code> — a drop-in upgrade from 3.0.x; the in-app updater offers
+    it automatically. The 3.0.4 notes are in the README.</p>
     <div class="credits card">
       <ul>
-        <li><strong>Provider metadata passthrough.</strong> <code>#KODIPROP</code>,
-          <code>#EXTVLCOPT</code>, <code>#EXTHTTP</code> and <code>#EXTGRP</code> are kept and
-          re-emitted in the M3U you serve, in the order your provider wrote them.</li>
-        <li><strong>Xtream account limits in failover.</strong> A source on an account that is full
-          elsewhere is no longer treated as idle, and the provider with more free connections wins
-          between equally loaded sources.</li>
-        <li><strong>15-second probe cache.</strong> A channel with backups probes each source at most
-          once per 15s instead of once per play request.</li>
-        <li><strong>Visibility.</strong> <code>Backups on: N of M</code> and a per-source health
-          summary on the dashboard.</li>
-        <li><strong>Channel limits are settings.</strong> <code>plex.channel.limit</code> and
-          <code>unfiltered.channel.limit</code>, default 480 as before.</li>
-        <li><strong>Fixed:</strong> auto-fill backups silently did nothing after a guide rebuild, and
-          two leftovers in the buffered streaming path declared a body length after the headers had
-          been sent.</li>
+        <li><strong>XMLTV mapping works again.</strong> The guide dropdown in a channel's mapping popup
+          saves the right value, so the channel list loads. Re-select the guide on channels mapped
+          while this was broken.</li>
+        <li><strong>Failover rejects non-stream responses.</strong> A provider's HTML error or
+          "too many connections" page served with status 200 is no longer picked as a stream.</li>
+        <li><strong>Dialogs in the app's own style.</strong> Restore, unsaved-settings and delete
+          confirmations no longer use the browser's blocking popup.</li>
       </ul>
     </div>
   </div>

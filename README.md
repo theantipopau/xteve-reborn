@@ -150,6 +150,26 @@ are the per-change detail, including how each fix was verified, and
 
 ---
 
+## What's new in 3.0.5
+
+Released as `v3.0.5` — a drop-in upgrade from 3.0.x: same config folder, same endpoints, no migration.
+
+**The XMLTV guide mapping works again.** Picking a guide in a channel's mapping popup showed no
+channels and an error, because the guide dropdown saved the wrong value in this fork. It now saves
+the guide's file name. If a channel was mapped while this was broken, re-select its guide once.
+
+**Failover rejects non-stream responses.** A provider's HTML redirect or "too many connections" page
+served with status 200 is no longer picked as a stream. HLS playlists and empty responses behave as
+before.
+
+**The server starts when a playlist is broken.** A playlist that can't be read used to stop the
+server at startup, if it happened to be the last one loaded. It is now skipped.
+
+**Smaller fixes.** A failed XMLTV file is now removed from the guide list instead of duplicating
+entries. The restore, unsaved-settings and delete confirmations use the app's own dialog instead of
+the browser's popup. The dashboard shows "Backups on: 0 of N" with a hint to fill backups, and it
+shows provider names as text, not HTML.
+
 ## What's new in 3.0.4
 
 Released as `v3.0.4` — a drop-in upgrade from 3.0.x. New settings get their defaults on first start,

@@ -70,27 +70,6 @@ function checkSources() {
     var server = new Server("checkSources");
     server.request(new Object());
 }
-// autoFillBackups offers the server-side bulk action that fills every
-// channel's empty backup slots with the same channel from other providers.
-// The server replies with a summary (filled count or why nothing was filled)
-// that the dashboard shows as a toast; a guide rebuild runs automatically.
-// With dryRun the server only reports the plan - nothing is saved - so the
-// result can be inspected before it is applied.
-function autoFillBackups(overwrite, dryRun) {
-    var request = new Object();
-    var options = [];
-    if (overwrite == true) {
-        options.push("overwrite");
-    }
-    if (dryRun == true) {
-        options.push("dryrun");
-    }
-    if (options.length > 0) {
-        request["options"] = options;
-    }
-    var server = new Server("autoFillBackups");
-    server.request(request);
-}
 // showToast replaces the old native alert() popups, which block the whole
 // page until dismissed and look jarring next to the rest of the UI. Errors
 // stay up longer than informational messages since they're more likely to
@@ -168,6 +147,30 @@ function showPopUpElement(elm) {
         showElement("popup", true);
     }, 10);
     return;
+}
+// askConfirm asks in the page's own dialog instead of the blocking native
+// confirm(). onYes runs only when the confirming button is pressed.
+function askConfirm(message, yesLabel, onYes) {
+    var box = document.getElementById("popup-custom");
+    box.innerHTML = "";
+    var text = document.createElement("P");
+    text.textContent = message;
+    text.style.whiteSpace = "pre-line";
+    box.appendChild(text);
+    var cancel = document.createElement("INPUT");
+    cancel.setAttribute("type", "button");
+    cancel.setAttribute("value", "{{.button.cancel}}");
+    cancel.onclick = function () { showElement("popup", false); };
+    box.appendChild(cancel);
+    var yes = document.createElement("INPUT");
+    yes.setAttribute("type", "button");
+    yes.setAttribute("value", yesLabel);
+    yes.onclick = function () {
+        showElement("popup", false);
+        onYes();
+    };
+    box.appendChild(yes);
+    showPopUpElement("popup-custom");
 }
 function showElement(elmID, type) {
     var cssClass;
@@ -500,6 +503,27 @@ function toggleChannelStatus(id) {
         }
     });
 }
+// autoFillBackups offers the server-side bulk action that fills every
+// channel's empty backup slots with the same channel from other providers.
+// The server replies with a summary (filled count or why nothing was filled)
+// that the dashboard shows as a toast; a guide rebuild runs automatically.
+// With dryRun the server only reports the plan - nothing is saved - so the
+// result can be inspected before it is applied.
+function autoFillBackups(overwrite, dryRun) {
+    var request = new Object();
+    var options = [];
+    if (overwrite == true) {
+        options.push("overwrite");
+    }
+    if (dryRun == true) {
+        options.push("dryrun");
+    }
+    if (options.length > 0) {
+        request["options"] = options;
+    }
+    var server = new Server("autoFillBackups");
+    server.request(request);
+}
 function restore() {
     if (document.getElementById('upload')) {
         document.getElementById('upload').remove();
@@ -513,8 +537,7 @@ function restore() {
     restore.click();
     restore.onchange = function () {
         var filename = restore.files[0].name;
-        var check = confirm("File: " + filename + "\n{{.confirm.restore}}");
-        if (check == true) {
+        askConfirm("File: " + filename + "\n{{.confirm.restore}}", "{{.button.restore}}", function () {
             var reader = new FileReader();
             var file = document.querySelector('input[type=file]').files[0];
             if (file) {
@@ -532,8 +555,7 @@ function restore() {
                 showToast("File could not be loaded", "error");
             }
             restore.remove();
-            return;
-        }
+        });
     };
     return;
 }

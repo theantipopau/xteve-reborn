@@ -876,14 +876,20 @@ function PageReady() {
 function createLayout() {
 
   // Client Info
+  // textContent, not innerHTML: "sources" names a provider, which is provider-controlled
   var obj = SERVER["clientInfo"]
   var keys = getObjKeys(obj);
   for (var i = 0; i < keys.length; i++) {
 
     if (document.getElementById(keys[i])) {
-      document.getElementById(keys[i]).innerHTML = obj[keys[i]];
+      document.getElementById(keys[i]).textContent = obj[keys[i]];
     }
 
+  }
+
+  // "0 of N" alone reads like a fault; say what to do about it
+  if (document.getElementById("backups") && /^0 of [1-9]/.test(obj["backups"])) {
+    document.getElementById("backups").textContent = obj["backups"] + " (none yet: try Fill backups)"
   }
 
   // Update banner
@@ -937,10 +943,11 @@ function createLayout() {
 function openThisMenu(element) {
 
   if (SETTINGS_DIRTY) {
-    if (!confirm("{{.settings.unsaved.confirmLeave}}")) {
-      return
-    }
-    clearSettingsDirty()
+    askConfirm("{{.settings.unsaved.confirmLeave}}", "{{.button.discard}}", function() {
+      clearSettingsDirty()
+      openThisMenu(element)
+    })
+    return
   }
 
   var id = element.id
@@ -1745,7 +1752,7 @@ class XMLTVFile {
 
   getPrograms(file:string, set:string):any {
     //var fileIDs:string[] = getObjKeys(SERVER["xepg"]["xmltvMap"])
-    var values = getObjKeys(SERVER["xepg"]["xmltvMap"][file]);
+    var values = getObjKeys(SERVER["xepg"]["xmltvMap"][file] || {});
     var text = new Array()
     var displayName:string
 
@@ -2099,21 +2106,19 @@ function savePopupData(dataType:string, id:string, remove:Boolean, option:number
 
   }
 
-  if (remove == true) {
-    
-    if (!confirm(confirmMsg)) {
-      showElement("popup", false)
-      return
-    }
-
+  var send = function() {
+    console.log("SEND TO SERVER");
+    console.log(data);
+    var server:Server = new Server(cmd)
+    server.request(data)
   }
-  
-  console.log("SEND TO SERVER");
-  
-  console.log(data);
-  
-  var server:Server = new Server(cmd)
-  server.request(data)
+
+  if (remove == true) {
+    askConfirm(confirmMsg, "{{.button.delete}}", send)
+    return
+  }
+
+  send()
 
 }
 

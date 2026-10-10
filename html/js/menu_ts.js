@@ -6,6 +6,8 @@ var __extends = (this && this.__extends) || (function () {
         return extendStatics(d, b);
     };
     return function (d, b) {
+        if (typeof b !== "function" && b !== null)
+            throw new TypeError("Class extends value " + String(b) + " is not a constructor or null");
         extendStatics(d, b);
         function __() { this.constructor = d; }
         d.prototype = b === null ? Object.create(b) : (__.prototype = b.prototype, new __());
@@ -438,8 +440,10 @@ var Cell = /** @class */ (function () {
             switch (this.childType) {
                 case "P":
                     // textContent, not innerHTML: this.value is provider-controlled
-                    // data (channel names, group titles, etc.) and could contain
-                    // markup/script from a malicious or compromised M3U/XMLTV source.
+                    // data (channel names, group titles, etc. from an M3U/XMLTV
+                    // source), and a malicious or compromised provider could embed
+                    // markup/script here that would otherwise execute in the admin's
+                    // session when the mapping/playlist/filter/users table renders it.
                     element = document.createElement(this.childType);
                     element.textContent = this.value;
                     element.className = this.className;
@@ -708,12 +712,17 @@ function PageReady() {
 }
 function createLayout() {
     // Client Info
+    // textContent, not innerHTML: "sources" names a provider, which is provider-controlled
     var obj = SERVER["clientInfo"];
     var keys = getObjKeys(obj);
     for (var i = 0; i < keys.length; i++) {
         if (document.getElementById(keys[i])) {
-            document.getElementById(keys[i]).innerHTML = obj[keys[i]];
+            document.getElementById(keys[i]).textContent = obj[keys[i]];
         }
+    }
+    // "0 of N" alone reads like a fault; say what to do about it
+    if (document.getElementById("backups") && /^0 of [1-9]/.test(obj["backups"])) {
+        document.getElementById("backups").textContent = obj["backups"] + " (none yet: try Fill backups)";
     }
     // Update banner
     if (document.getElementById("updateBanner")) {
@@ -754,10 +763,11 @@ function createLayout() {
 }
 function openThisMenu(element) {
     if (SETTINGS_DIRTY) {
-        if (!confirm("{{.settings.unsaved.confirmLeave}}")) {
-            return;
-        }
-        clearSettingsDirty();
+        askConfirm("{{.settings.unsaved.confirmLeave}}", "{{.button.discard}}", function () {
+            clearSettingsDirty();
+            openThisMenu(element);
+        });
+        return;
     }
     var id = element.id;
     var content = new ShowContent(id);
@@ -1433,7 +1443,7 @@ var XMLTVFile = /** @class */ (function () {
     };
     XMLTVFile.prototype.getPrograms = function (file, set) {
         //var fileIDs:string[] = getObjKeys(SERVER["xepg"]["xmltvMap"])
-        var values = getObjKeys(SERVER["xepg"]["xmltvMap"][file]);
+        var values = getObjKeys(SERVER["xepg"]["xmltvMap"][file] || {});
         var text = new Array();
         var displayName;
         for (var i = 0; i < values.length; i++) {
@@ -1691,16 +1701,17 @@ function savePopupData(dataType, id, remove, option) {
             return;
             break;
     }
+    var send = function () {
+        console.log("SEND TO SERVER");
+        console.log(data);
+        var server = new Server(cmd);
+        server.request(data);
+    };
     if (remove == true) {
-        if (!confirm(confirmMsg)) {
-            showElement("popup", false);
-            return;
-        }
+        askConfirm(confirmMsg, "{{.button.delete}}", send);
+        return;
     }
-    console.log("SEND TO SERVER");
-    console.log(data);
-    var server = new Server(cmd);
-    server.request(data);
+    send();
 }
 function donePopupData(dataType, idsStr) {
     var ids = idsStr.split(',');

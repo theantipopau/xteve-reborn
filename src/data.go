@@ -839,7 +839,7 @@ func buildDatabaseDVR() (err error) {
 
 		var playlistFile = getLocalProviderFiles(fileType)
 
-		for n, i := range playlistFile {
+		for _, i := range playlistFile {
 
 			var channels []interface{}
 			var groupTitle, tvgID, uuid int = 0, 0, 0
@@ -849,20 +849,23 @@ func buildDatabaseDVR() (err error) {
 			var id = strings.TrimSuffix(getFilenameFromPath(i), path.Ext(getFilenameFromPath(i)))
 			var playlistName = getProviderParameter(id, fileType, "name")
 
+			// A playlist that can't be read is skipped. It must not reach the
+			// err this function returns, or a broken file fails startup.
+			var parseErr error
+
 			switch fileType {
 
 			case "m3u":
-				channels, err = parsePlaylist(i, fileType)
+				channels, parseErr = parsePlaylist(i, fileType)
 			case "hdhr":
-				channels, err = parsePlaylist(i, fileType)
+				channels, parseErr = parsePlaylist(i, fileType)
 
 			}
 
-			if err != nil {
-				ShowError(err, 1005)
-				err = errors.New(playlistName + ": Local copy of the file no longer exists")
-				ShowError(err, 0)
-				playlistFile = append(playlistFile[:n], playlistFile[n+1:]...)
+			if parseErr != nil {
+				ShowError(parseErr, 1005)
+				ShowError(errors.New(playlistName+": Local copy of the file no longer exists"), 0)
+				continue
 			}
 
 			// Streams analysieren
