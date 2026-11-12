@@ -1,14 +1,14 @@
 package src
 
 import (
+	"bytes"
 	"encoding/json"
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"path"
 	"runtime"
-	"sort"
 
 	"crypto/md5"
 	"encoding/hex"
@@ -251,7 +251,12 @@ func createXEPGDatabase() (err error) {
 	xepgLock.Lock()
 	defer xepgLock.Unlock()
 
-	var allChannelNumbers = make([]float64, 0, System.UnfilteredChannelLimit)
+	// Channel numbers in use, as a set. Numbers are only added during this
+	// function, so the lowest free number never goes down and the search can
+	// continue from where it stopped. It used to re-sort and linearly scan a
+	// slice of every number for each new channel: over five minutes for a
+	// first import of 20,000 channels.
+	var usedChannelNumbers = make(map[float64]bool)
 	Data.Cache.Streams.Active = make([]string, 0, System.UnfilteredChannelLimit)
 	Data.XEPG.Channels = make(map[string]interface{}, System.UnfilteredChannelLimit)
 
@@ -261,38 +266,31 @@ func createXEPGDatabase() (err error) {
 		return err
 	}
 
+	// IDs are only added too, so the search for a free one continues from the
+	// last ID handed out instead of restarting at x-ID.0.
+	var nextID = 0
+
 	var createNewID = func() (xepg string) {
 
-		var firstID = 0 //len(Data.XEPG.Channels)
-
-	newXEPGID:
-
-		if _, ok := Data.XEPG.Channels["x-ID."+strconv.FormatInt(int64(firstID), 10)]; ok {
-			firstID++
-			goto newXEPGID
+		for {
+			xepg = "x-ID." + strconv.Itoa(nextID)
+			nextID++
+			if _, ok := Data.XEPG.Channels[xepg]; !ok {
+				return
+			}
 		}
-
-		xepg = "x-ID." + strconv.FormatInt(int64(firstID), 10)
-		return
 	}
+
+	var nextFreeNumber = Settings.MappingFirstChannel
 
 	var getFreeChannelNumber = func() (xChannelID string) {
 
-		sort.Float64s(allChannelNumbers)
-
-		var firstFreeNumber float64 = Settings.MappingFirstChannel
-
-		for {
-
-			if indexOfFloat64(firstFreeNumber, allChannelNumbers) == -1 {
-				xChannelID = fmt.Sprintf("%g", firstFreeNumber)
-				allChannelNumbers = append(allChannelNumbers, firstFreeNumber)
-				return
-			}
-
-			firstFreeNumber++
-
+		for usedChannelNumbers[nextFreeNumber] {
+			nextFreeNumber++
 		}
+
+		usedChannelNumbers[nextFreeNumber] = true
+		return fmt.Sprintf("%g", nextFreeNumber)
 	}
 
 	var generateHashForChannel = func(m3uID string, groupTitle string, tvgID string, tvgName string, uuidKey string, uuidValue string) string {
@@ -316,7 +314,7 @@ func createXEPGDatabase() (err error) {
 		}
 
 		if xChannelID, err := strconv.ParseFloat(xepgChannel.XChannelID, 64); err == nil {
-			allChannelNumbers = append(allChannelNumbers, xChannelID)
+			usedChannelNumbers[xChannelID] = true
 		}
 
 	}
@@ -609,7 +607,7 @@ func createXMLTVFile() (err error) {
 	Data.Cache.ImagesURLS = []string{}
 	Data.Cache.ImagesCache = []string{}
 
-	files, err := ioutil.ReadDir(System.Folder.ImagesCache)
+	files, err := os.ReadDir(System.Folder.ImagesCache)
 	if err == nil {
 
 		for _, file := range files {
@@ -641,6 +639,11 @@ func createXMLTVFile() (err error) {
 
 	var tmpProgram = &XMLTV{}
 
+	// Programmes of each guide file, grouped by channel id once per build.
+	// getProgramData used to scan every programme of the file for every
+	// channel: channels x programmes, seconds on a large guide.
+	var programIndex = make(map[string]map[string][]*Program)
+
 	for _, dxc := range Data.XEPG.Channels {
 
 		var xepgChannel XEPGChannelStruct
@@ -659,13 +662,9 @@ func createXMLTVFile() (err error) {
 
 				// Programme
 
-				*tmpProgram, err = getProgramData(xepgChannel)
+				*tmpProgram, err = getProgramData(xepgChannel, programIndex)
 				if err == nil {
-
-					for _, program := range tmpProgram.Program {
-						xepgXML.Program = append(xepgXML.Program, program)
-					}
-
+					xepgXML.Program = append(xepgXML.Program, tmpProgram.Program...)
 				}
 
 			}
@@ -674,9 +673,22 @@ func createXMLTVFile() (err error) {
 
 	}
 
-	var content, _ = xml.MarshalIndent(xepgXML, "  ", "    ")
-	var xmlOutput = []byte(xml.Header + string(content))
-	writeByteToFile(System.File.XML, xmlOutput)
+	// Encoded straight into one buffer: the same bytes as MarshalIndent
+	// with the header prepended, without two more copies of a guide that
+	// can be hundreds of MB.
+	var buf bytes.Buffer
+	buf.WriteString(xml.Header)
+	var encoder = xml.NewEncoder(&buf)
+	encoder.Indent("  ", "    ")
+	if err = encoder.Encode(xepgXML); err != nil {
+		return
+	}
+	var xmlOutput = buf.Bytes()
+
+	if err = writeByteToFile(System.File.XML, xmlOutput); err != nil {
+		ShowError(err, 0)
+		return
+	}
 
 	showInfo("XEPG:" + fmt.Sprintf("Compress XMLTV file (%s)", System.Compressed.GZxml))
 	err = compressGZIP(&xmlOutput, System.Compressed.GZxml)
@@ -687,25 +699,41 @@ func createXMLTVFile() (err error) {
 }
 
 // Programmdaten erstellen (createXMLTVFile)
-func getProgramData(xepgChannel XEPGChannelStruct) (xepgXML XMLTV, err error) {
+// programIndex holds each file's programmes grouped by channel id; it is
+// filled on first use of a file and shared across one createXMLTVFile run.
+func getProgramData(xepgChannel XEPGChannelStruct, programIndex map[string]map[string][]*Program) (xepgXML XMLTV, err error) {
 
 	var xmltvFile = System.Folder.Data + xepgChannel.XmltvFile
 	var channelID = xepgChannel.XMapping
 
-	var xmltv XMLTV
+	var programs []*Program
 
 	if xmltvFile == System.Folder.Data+"xTeVe Dummy" {
-		xmltv = createDummyProgram(xepgChannel)
+		programs = createDummyProgram(xepgChannel).Program
 	} else {
 
-		err = getLocalXMLTV(xmltvFile, &xmltv)
-		if err != nil {
-			return
+		byChannel, ok := programIndex[xmltvFile]
+		if !ok {
+
+			var xmltv XMLTV
+			err = getLocalXMLTV(xmltvFile, &xmltv)
+			if err != nil {
+				return
+			}
+
+			byChannel = make(map[string][]*Program)
+			for _, program := range xmltv.Program {
+				byChannel[program.Channel] = append(byChannel[program.Channel], program)
+			}
+			programIndex[xmltvFile] = byChannel
+
 		}
+
+		programs = byChannel[channelID]
 
 	}
 
-	for _, xmltvProgram := range xmltv.Program {
+	for _, xmltvProgram := range programs {
 
 		if xmltvProgram.Channel == channelID {
 			//fmt.Println(&channelID)

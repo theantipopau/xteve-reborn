@@ -3,8 +3,8 @@ package m3u
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
+	"os"
 	"testing"
 )
 
@@ -22,7 +22,7 @@ type M3UStream struct {
 func TestStream1(t *testing.T) {
 
 	var file = "test_list_1.m3u"
-	var content, err = ioutil.ReadFile(file)
+	var content, err = os.ReadFile(file)
 	if err != nil {
 		t.Error(err)
 		return

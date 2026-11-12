@@ -216,7 +216,7 @@ func saveSettings(settings SettingsStruct) (err error) {
 
 	System.Folder.Temp = settings.TempPath + settings.UUID + string(os.PathSeparator)
 
-	err = writeByteToFile(System.File.Settings, []byte(mapToJSON(settings)))
+	err = saveMapToJSONFile(System.File.Settings, settings)
 	if err != nil {
 		return
 	}

@@ -1,6 +1,9 @@
 package src
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"sync"
 	"testing"
 )
@@ -65,4 +68,56 @@ func TestXEPGChannelsConcurrentAccess(t *testing.T) {
 	}
 
 	wg.Wait()
+}
+
+// New channels get the lowest free x-ID and the lowest free channel number
+// from MappingFirstChannel up, skipping ones already taken in the database.
+func TestCreateXEPGDatabaseAllocatesFreeIDsAndNumbers(t *testing.T) {
+
+	var oldXEPG, oldFirst, oldActive = System.File.XEPG, Settings.MappingFirstChannel, Data.Streams.Active
+	t.Cleanup(func() {
+		System.File.XEPG, Settings.MappingFirstChannel, Data.Streams.Active = oldXEPG, oldFirst, oldActive
+	})
+
+	System.File.XEPG = filepath.Join(t.TempDir(), "xepg.json")
+	var existing = `{"x-ID.1":{"x-channelID":"1001","_file.m3u.id":"M1","name":"Old","x-name":"Old"}}`
+	if err := os.WriteFile(System.File.XEPG, []byte(existing), 0644); err != nil {
+		t.Fatal(err)
+	}
+	Settings.MappingFirstChannel = 1000
+
+	Data.Streams.Active = nil
+	for _, name := range []string{"A", "B", "C"} {
+		Data.Streams.Active = append(Data.Streams.Active, map[string]interface{}{
+			"_file.m3u.id": "M2", "name": name, "group-title": "G", "url": "http://x/" + name,
+		})
+	}
+
+	if err := createXEPGDatabase(); err != nil {
+		t.Fatal(err)
+	}
+
+	var got = map[string]string{}
+	for id, c := range Data.XEPG.Channels {
+		var ch XEPGChannelStruct
+		if err := json.Unmarshal([]byte(mapToJSON(c)), &ch); err != nil {
+			t.Fatal(err)
+		}
+		got[id] = ch.Name + " " + ch.XChannelID
+	}
+
+	var want = map[string]string{
+		"x-ID.0": "A 1000",
+		"x-ID.1": "Old 1001",
+		"x-ID.2": "B 1002",
+		"x-ID.3": "C 1003",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("channels = %v, want %v", got, want)
+	}
+	for id, w := range want {
+		if got[id] != w {
+			t.Errorf("%s = %q, want %q (all: %v)", id, got[id], w, got)
+		}
+	}
 }

@@ -12,10 +12,88 @@ being worked on), and say plainly what has *not* been verified yet.
 
 ---
 
-## 3.0.5 — prepared, not yet tagged
+## 3.0.6 — prepared, not yet tagged
 
-Version set to `3.0.5.0305` (`xteve.go`), release notes in `tools/release/notes-v3.0.5.md`, README and docs
-site updated. Tagging `v3.0.5` is the release step and has not been done.
+Version set to `3.0.6.0306` (`xteve.go`), release notes in `tools/release/notes-v3.0.6.md`. README and the
+docs site still describe 3.0.5; update them when tagging. Fixes from a whole-program review.
+
+### Security
+
+- **Cross-site requests to the web UI and API are rejected** (`src/webserver.go`, `sameOrigin`). The
+  websocket's origin check was commented out, and web authentication is off by default, so any website open
+  in a browser on the LAN could drive `/data/`. That interface sets the ffmpeg/VLC path and options, which
+  makes it command execution. Browser requests whose `Origin` host is not the `Host` (or a reverse proxy's
+  `X-Forwarded-Host`) now get 403, on `/data/` and `/api/`. Requests without `Origin` (curl, scripts, Plex)
+  are unaffected. Test: `TestSameOrigin`.
+- **`ReadHeaderTimeout` of 10 s** on the HTTP server. No read/write timeout, since a stream is one long
+  response.
+
+### Data safety
+
+- **Config files are written atomically** (`writeByteToFile`, used by `saveMapToJSONFile` and
+  `settings.json`): temp file in the same folder, fsync, rename. A crash mid-write used to leave
+  `settings.json` or `xepg.json` truncated. Test: `TestWriteByteToFileReplaces`.
+
+### Streaming (`bufferingStream`, `src/buffer.go`)
+
+- `defer file.Close()` inside the endless send loop queued one deferred call per segment for as long as a
+  client watched. Each segment is now copied with `io.Copy`, closed, and flushed.
+- The wait-for-first-segment loop spun at 100% CPU when the playlist entry disappeared (no sleep, no exit).
+  It now returns, and also exits when the client disconnects.
+- The tuner-limit clip set `Content-type` after `WriteHeader`, so it was dropped; it is now `video/mpeg`.
+  The same dead header code in the stream path is removed; the stream's type is still sniffed by net/http,
+  as before.
+- `http.CloseNotifier` (deprecated) replaced by `r.Context().Done()`.
+- Registering a client (load, change, store of the shared playlist maps) now runs under `Lock`, as
+  `killClientConnection` already did. The buffer's `defaultSegment` map write is also locked now.
+- Not fixed here: other buffer goroutines still read the playlist maps unlocked. The buffer keeps segments
+  on disk and polls; an in-memory buffer is the larger rewrite, planned for 3.1.
+
+### Speed
+
+- **XEPG database build**: new channels' IDs and channel numbers were allocated with a re-sort and linear
+  scan per channel. First import of 20,000 channels: **5 min 27 s before, 0.12 s after**, with identical
+  IDs and numbers (sorted digest compared). Test: `TestCreateXEPGDatabaseAllocatesFreeIDsAndNumbers`.
+- **Guide build**: programmes are grouped by channel once per guide file instead of scanned per channel,
+  and the XML is encoded straight into one buffer. 1,201 channels / 180,096 programmes: 2.13 s before,
+  1.63 s after, identical output (sorted digest). The rest is stdlib XML decoding and encoding.
+- `mapToJSON` is compact instead of indented. It mostly feeds `json.Unmarshal` thousands of times per build.
+  `settings.json` is still written indented.
+- `ioutil` replaced by `os`/`io` throughout; `os.ReadDir` skips the per-file stat in the stream loop.
+
+### Build
+
+- CI, Jellyfin and Release workflows take the Go version from `go.mod` (they said 1.24 while `go.mod` says
+  1.26).
+- CI now compiles `ts/` with TypeScript 5.6.3 and fails if `html/js` differs. `ts/compileJS.sh` uses the same
+  pinned version. The current tree compiles with no errors and no diff.
+
+### Checked, no change
+
+- `innerHTML` in `ts/`: every sink with variable input gets a translation string, or provider text that is
+  already escaped or set with `textContent`.
+
+### Verified
+
+- `gofmt`, `vet`, `go test ./...`, `go test -race ./...` pass; `src/webUI.go` unchanged.
+- Local instance (port 34411) with a fake provider streaming TS at ~600 KB/s, buffer `xteve`, 1 tuner:
+  stream starts with `0x47`; a second client on the same channel restreams; a second channel while the
+  tuner is busy gets the limit clip as `video/mpeg`; after clients leave, the tuner is released and the
+  other channel plays. Repeated with a `-race` build and concurrent clients: 0 races on the streaming path
+  (one, in `defaultSegment`, was found this way and fixed).
+- Websocket handshake: same origin 101, other origin 403, no origin 101; cross-site API POST 403.
+- Browser: the web UI loads and works over the websocket; changing EPG source to XEPG and saving wrote
+  `settings.json` with no temp files left, built the XEPG database (1000, 1001) and a valid guide.
+
+### Still open
+
+- The `-race` build reports a race in `setGlobalDomain` (`System.Domain` written by every web request while
+  others read it). Older code, not from this change; split out as a separate task.
+- Not tested against Plex or a real provider.
+
+## 3.0.5 — released
+
+Version `3.0.5.0305`, tagged `v3.0.5` on `92401f3`; all five platform assets and checksums verified.
 
 ### Source drift: the shipped JS had changes the TypeScript did not
 

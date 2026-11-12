@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -16,6 +17,37 @@ import (
 
 	"github.com/gorilla/websocket"
 )
+
+// sameOrigin reports whether a browser request comes from this server's own
+// pages. Without it, any website open in a browser on the LAN could drive the
+// web UI's websocket (which can set the ffmpeg path, so this is command
+// execution) or the API. Requests with no Origin header are not from a
+// browser page and are allowed: curl, scripts, Plex. Behind a reverse proxy
+// that rewrites Host, the proxy's X-Forwarded-Host is accepted too.
+func sameOrigin(r *http.Request) bool {
+
+	var origin = r.Header.Get("Origin")
+	if len(origin) == 0 {
+		return true
+	}
+
+	u, err := url.Parse(origin)
+	if err != nil || len(u.Host) == 0 {
+		return false
+	}
+
+	if strings.EqualFold(u.Host, r.Host) {
+		return true
+	}
+
+	for _, host := range strings.Split(r.Header.Get("X-Forwarded-Host"), ",") {
+		if host = strings.TrimSpace(host); len(host) > 0 && strings.EqualFold(u.Host, host) {
+			return true
+		}
+	}
+
+	return false
+}
 
 // StartWebserver : Startet den Webserver
 func StartWebserver() (err error) {
@@ -57,7 +89,12 @@ func StartWebserver() (err error) {
 		return
 	}
 
-	if err = http.Serve(listener, nil); err != nil {
+	// ReadHeaderTimeout stops a client that opens a connection and never
+	// finishes its request from holding it forever. No read or write timeout:
+	// a stream is one response that lasts as long as someone watches.
+	var server = &http.Server{ReadHeaderTimeout: 10 * time.Second}
+
+	if err = server.Serve(listener); err != nil {
 		ShowError(err, 1001)
 		return
 	}
@@ -401,12 +438,10 @@ func WS(w http.ResponseWriter, r *http.Request) {
 
 	var newToken string
 
-	/*
-		if r.Header.Get("Origin") != "http://"+r.Host {
-			httpStatusError(w, r, 403)
-			return
-		}
-	*/
+	if !sameOrigin(r) {
+		httpStatusError(w, r, 403)
+		return
+	}
 
 	conn, err := websocket.Upgrade(w, r, w.Header(), 1024, 1024)
 	if err != nil {
@@ -944,6 +979,11 @@ func API(w http.ResponseWriter, r *http.Request) {
 			}
 	*/
 
+	if !sameOrigin(r) {
+		httpStatusError(w, r, 403)
+		return
+	}
+
 	setGlobalDomain(r.Host)
 	var request APIRequestStruct
 	var response APIResponseStruct
@@ -971,7 +1011,7 @@ func API(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	b, err := ioutil.ReadAll(r.Body)
+	b, err := io.ReadAll(r.Body)
 	defer r.Body.Close()
 	if err != nil {
 		httpStatusError(w, r, 400)
