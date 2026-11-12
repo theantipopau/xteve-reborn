@@ -23,7 +23,7 @@ func uploadLogo(input, filename string) (logoURL string, err error) {
 		return
 	}
 
-	logoURL = fmt.Sprintf("%s://%s/data_images/%s", System.ServerProtocol.XML, System.Domain, filename)
+	logoURL = fmt.Sprintf("%s://%s/data_images/%s", System.ServerProtocol.XML, getDomain(), filename)
 
 	return
 

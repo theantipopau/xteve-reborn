@@ -24,6 +24,13 @@ power cut while saving used to be able to leave them truncated.
 - The "all tuners busy" video is now sent with the right video type.
 - Two clients tuning at the same moment could miscount tuners.
 
+### A crash risk under parallel requests is gone
+
+Every web request rewrote the server's address in shared memory while other requests (Plex's device
+discovery, the channel lineup, the playlist and guide) read it. A browser loads the web UI's files in
+parallel, so this happened on every page load. It could make a response mix two addresses or, rarely,
+crash. These reads and writes are now locked.
+
 ### Faster with large playlists
 
 - Importing a large playlist for the first time is much faster: 20,000 new channels took over five minutes

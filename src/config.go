@@ -70,6 +70,13 @@ var notificationLock sync.Mutex
 // by every WS response.
 var updateStateLock sync.Mutex
 
+// domainLock guards System.Domain and System.Addresses. setGlobalDomain
+// rewrites them from r.Host on every web/API/WS request, and the browser
+// loads the UI's assets in parallel, so writers race each other and every
+// response builder (HDHR discover/lineup, M3U/XMLTV, stream URLs) that reads
+// them. Read through getDomain()/getAddresses(), never the fields directly.
+var domainLock sync.Mutex
+
 // Init : Systeminitialisierung
 func Init() (err error) {
 

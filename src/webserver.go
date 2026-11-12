@@ -595,7 +595,7 @@ func WS(w http.ResponseWriter, r *http.Request) {
 			file, errNew := xteveBackup()
 			err = errNew
 			if err == nil {
-				response.OpenLink = fmt.Sprintf("%s://%s/download/%s", System.ServerProtocol.WEB, System.Domain, file)
+				response.OpenLink = fmt.Sprintf("%s://%s/download/%s", System.ServerProtocol.WEB, getDomain(), file)
 			}
 
 		case "xteveRestore":
@@ -1081,9 +1081,10 @@ func API(w http.ResponseWriter, r *http.Request) {
 		xepgLock.Unlock()
 
 		response.EpgSource = Settings.EpgSource
-		response.URLDvr = System.Domain
-		response.URLM3U = System.ServerProtocol.M3U + "://" + System.Domain + "/m3u/" + System.AppName + ".m3u"
-		response.URLXepg = System.ServerProtocol.XML + "://" + System.Domain + "/xmltv/" + System.AppName + ".xml"
+		domain := getDomain()
+		response.URLDvr = domain
+		response.URLM3U = System.ServerProtocol.M3U + "://" + domain + "/m3u/" + System.AppName + ".m3u"
+		response.URLXepg = System.ServerProtocol.XML + "://" + domain + "/xmltv/" + System.AppName + ".xml"
 
 	case "update.m3u":
 		err = getProviderData("m3u", "")
@@ -1156,9 +1157,7 @@ func setDefaultResponseData(response ResponseStruct, data bool) (defaults Respon
 	// Folgende Daten immer an den Client übergeben
 	defaults.ClientInfo.ARCH = System.ARCH
 	defaults.ClientInfo.EpgSource = Settings.EpgSource
-	defaults.ClientInfo.DVR = System.Addresses.DVR
-	defaults.ClientInfo.M3U = System.Addresses.M3U
-	defaults.ClientInfo.XML = System.Addresses.XML
+	defaults.ClientInfo.DVR, defaults.ClientInfo.M3U, defaults.ClientInfo.XML = getAddresses()
 	defaults.ClientInfo.OS = System.OS
 
 	xepgLock.Lock()

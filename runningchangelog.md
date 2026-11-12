@@ -85,10 +85,31 @@ docs site still describe 3.0.5; update them when tagging. Fixes from a whole-pro
 - Browser: the web UI loads and works over the websocket; changing EPG source to XEPG and saving wrote
   `settings.json` with no temp files left, built the XEPG database (1000, 1001) and a valid guide.
 
+### Data race on System.Domain / System.Addresses
+
+`setGlobalDomain` (src/system.go) rewrote `System.Domain` and `System.Addresses.DVR/M3U/XML` from
+`r.Host` on every Web/WS/API request. The browser loads the UI's assets in parallel, so these writes raced
+each other and every reader (HDHR discover/capability/lineup, M3U/XMLTV builders, stream URLs, image
+cache URLs, the WS defaults). A `-race` binary driven by the web UI reported 8 `DATA RACE` warnings at
+system.go setGlobalDomain called from webserver.go `Web()`. Racing string writes can tear.
+
+- New `domainLock` (src/config.go), a plain `sync.Mutex` like the other named locks. `setGlobalDomain`
+  builds the new values locally and stores all four under the lock in one go.
+- Reads go through `getDomain()` and `getAddresses()`; no non-test code reads the fields directly.
+  `getDiscover` and the WS status response take one snapshot so a response cannot mix two hosts.
+- Behaviour unchanged: the fields still hold the Host of the most recent request (the existing global
+  design), now without the race.
+
+**Verified:** `gofmt -l .` empty, `go vet ./...`, `go test ./...` and `go test -race ./...` pass. New
+`TestGlobalDomainConcurrentAccess` (src/concurrency_test.go) runs writers against `getDiscover`,
+`getCapability`, `getDomain` and `getAddresses`; with the writer's lock removed it fails with 9
+`DATA RACE` warnings, with the lock it passes (`-count=3`).
+**Verified after merging into 3.0.6:** a `-race` build of the merged tree loaded the web UI in a browser,
+then took 200 parallel requests to `/web/`, `/discover.json`, `/lineup.json` and `/device.xml` under two
+Host names, plus three concurrent stream clients: 0 `DATA RACE` warnings (8 before the fix).
+
 ### Still open
 
-- The `-race` build reports a race in `setGlobalDomain` (`System.Domain` written by every web request while
-  others read it). Older code, not from this change; split out as a separate task.
 - Not tested against Plex or a real provider.
 
 ## 3.0.5 — released
