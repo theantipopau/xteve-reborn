@@ -150,6 +150,28 @@ are the per-change detail, including how each fix was verified, and
 
 ---
 
+## What's new in 3.0.6
+
+Released as `v3.0.6` — a drop-in upgrade from 3.0.x: same config folder, same endpoints, no migration.
+
+**Other websites can no longer control xteve-reborn.** With web authentication off (the default), any
+website open in a browser on your network could send commands to the web interface, including setting
+the ffmpeg path, which runs a program. Browser requests from another site are now refused. The web UI,
+Plex, Emby, Jellyfin, curl and scripts are unaffected. Behind a reverse proxy that changes the `Host`
+header, the proxy must pass `X-Forwarded-Host`. Turning on web authentication is still recommended if
+other people can reach the server.
+
+**Settings can't be corrupted by a crash.** Settings and the channel database are written to a temporary
+file and then swapped in, so a crash or power cut mid-save no longer leaves them truncated.
+
+**Streaming fixes.** A memory leak while watching, a tuner that could hold one CPU core at 100% after a
+stream failed, the "all tuners busy" video sent with the wrong type, and miscounted tuners when two
+clients tune at once are all fixed. A crash risk when the web UI and Plex made requests at the same
+time is gone too.
+
+**Faster with large playlists.** A first import of 20,000 channels took over five minutes and now takes a
+fraction of a second. Building the guide is faster on large XMLTV files.
+
 ## What's new in 3.0.5
 
 Released as `v3.0.5` — a drop-in upgrade from 3.0.x: same config folder, same endpoints, no migration.
@@ -238,7 +260,7 @@ it would change without saving anything.
 
 ---
 
-## What's different from upstream xTeVe (v3.0.5)
+## What's different from upstream xTeVe (v3.0.6)
 
 Upstream's last tagged release was `2.2.0`, from 2021. Everything below is new in this fork — the
 per-change detail behind the highlights above, kept in the order it landed.
@@ -641,7 +663,7 @@ No settings or data format changes — safe to drop in over an existing install 
 ## Downloads
 Prebuilt binaries (Windows/Linux/macOS, amd64+arm64) are published on the
 [Releases page](https://github.com/theantipopau/xteve-reborn/releases). The current release is
-`3.0.5`. Each release includes an `xteve-reborn_<version>_checksums.txt` file of SHA-256 hashes, and
+`3.0.6`. Each release includes an `xteve-reborn_<version>_checksums.txt` file of SHA-256 hashes, and
 is built by CI (`.github/workflows/release.yml`) rather than by hand. You can also build from
 source (below).
 

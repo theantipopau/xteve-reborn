@@ -12,10 +12,10 @@ being worked on), and say plainly what has *not* been verified yet.
 
 ---
 
-## 3.0.6 — prepared, not yet tagged
+## 3.0.6 — released
 
-Version set to `3.0.6.0306` (`xteve.go`), release notes in `tools/release/notes-v3.0.6.md`. README and the
-docs site still describe 3.0.5; update them when tagging. Fixes from a whole-program review.
+Version `3.0.6.0306` (`xteve.go`), tagged `v3.0.6`, release notes in `tools/release/notes-v3.0.6.md`. README
+"What's new in 3.0.6", current-release line and the docs site updated with the tag. Fixes from a whole-program review.
 
 ### Security
 

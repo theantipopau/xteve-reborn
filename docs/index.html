@@ -146,7 +146,7 @@
       fork of the original xTeVe — faster, safer, and kept current.
     </p>
     <div class="cta">
-      <a class="btn primary" href="https://github.com/theantipopau/xteve-reborn/releases/latest">Download 3.0.5</a>
+      <a class="btn primary" href="https://github.com/theantipopau/xteve-reborn/releases/latest">Download 3.0.6</a>
       <a class="btn ghost" href="https://github.com/theantipopau/xteve-reborn#highlights-what-this-fork-fixes-or-adds-over-upstream-xteve">What this fork fixes</a>
       <a class="btn ghost" href="https://github.com/theantipopau/xteve-reborn">Source on GitHub</a>
     </div>
@@ -209,18 +209,19 @@
 
 <section id="whatsnew">
   <div class="wrap">
-    <h2>What's new in 3.0.5</h2>
-    <p class="sub">Released as <code>v3.0.5</code> — a drop-in upgrade from 3.0.x; the in-app updater offers
-    it automatically. The 3.0.4 notes are in the README.</p>
+    <h2>What's new in 3.0.6</h2>
+    <p class="sub">Released as <code>v3.0.6</code> — a drop-in upgrade from 3.0.x; the in-app updater offers
+    it automatically. Earlier notes are in the README.</p>
     <div class="credits card">
       <ul>
-        <li><strong>XMLTV mapping works again.</strong> The guide dropdown in a channel's mapping popup
-          saves the right value, so the channel list loads. Re-select the guide on channels mapped
-          while this was broken.</li>
-        <li><strong>Failover rejects non-stream responses.</strong> A provider's HTML error or
-          "too many connections" page served with status 200 is no longer picked as a stream.</li>
-        <li><strong>Dialogs in the app's own style.</strong> Restore, unsaved-settings and delete
-          confirmations no longer use the browser's blocking popup.</li>
+        <li><strong>Other websites can no longer control it.</strong> Browser requests from another site
+          to the web interface and API are refused. Plex, Emby, Jellyfin and the web UI are unaffected.</li>
+        <li><strong>Settings survive a crash.</strong> Settings and the channel database are saved with a
+          safe swap, so a crash mid-save can't truncate them.</li>
+        <li><strong>Steadier streaming.</strong> Fixes a memory leak while watching, a CPU spin after a
+          failed stream, and tuner miscounts when two clients tune at once.</li>
+        <li><strong>Much faster large imports.</strong> 20,000 new channels went from over five minutes to
+          a fraction of a second.</li>
       </ul>
     </div>
   </div>
