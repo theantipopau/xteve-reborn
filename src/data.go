@@ -230,7 +230,7 @@ func updateServerSettings(request RequestStruct) (settings SettingsStruct, err e
 
 			if Settings.EpgSource == "XEPG" && imageCachingInProgress() == false {
 
-				images, errNew := imgcache.New(System.Folder.ImagesCache, fmt.Sprintf("%s://%s/images/", System.ServerProtocol.WEB, System.Domain), Settings.CacheImages)
+				images, errNew := imgcache.New(System.Folder.ImagesCache, fmt.Sprintf("%s://%s/images/", System.ServerProtocol.WEB, getDomain()), Settings.CacheImages)
 				if errNew != nil {
 					ShowError(errNew, 0)
 				}
@@ -537,7 +537,7 @@ func saveXEpgMapping(request RequestStruct) (err error) {
 	// Only used to confirm the submitted mapping is a valid JSON object.
 	var tmp map[string]interface{}
 
-	images, errImages := imgcache.New(System.Folder.ImagesCache, fmt.Sprintf("%s://%s/images/", System.ServerProtocol.WEB, System.Domain), Settings.CacheImages)
+	images, errImages := imgcache.New(System.Folder.ImagesCache, fmt.Sprintf("%s://%s/images/", System.ServerProtocol.WEB, getDomain()), Settings.CacheImages)
 	if errImages != nil {
 		ShowError(errImages, 0)
 	}

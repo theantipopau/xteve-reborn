@@ -257,35 +257,52 @@ func channelLimitOrDefault(value, def int) int {
 // Zugriff über die Domain ermöglichen
 func setGlobalDomain(domain string) {
 
-	System.Domain = domain
+	var dvr, m3u, xml string
 
 	switch Settings.AuthenticationPMS {
 	case true:
-		System.Addresses.DVR = "username:password@" + System.Domain
+		dvr = "username:password@" + domain
 	case false:
-		System.Addresses.DVR = System.Domain
+		dvr = domain
 	}
 
 	switch Settings.AuthenticationM3U {
 	case true:
-		System.Addresses.M3U = System.ServerProtocol.M3U + "://" + System.Domain + "/m3u/" + System.AppName + ".m3u?username=xxx&password=yyy<br>(Specific groups: [http://...&group-title=foo,bar])"
+		m3u = System.ServerProtocol.M3U + "://" + domain + "/m3u/" + System.AppName + ".m3u?username=xxx&password=yyy<br>(Specific groups: [http://...&group-title=foo,bar])"
 	case false:
-		System.Addresses.M3U = System.ServerProtocol.M3U + "://" + System.Domain + "/m3u/" + System.AppName + ".m3u     (Specific groups: [http://...?group-title=foo,bar])"
+		m3u = System.ServerProtocol.M3U + "://" + domain + "/m3u/" + System.AppName + ".m3u     (Specific groups: [http://...?group-title=foo,bar])"
 	}
 
 	switch Settings.AuthenticationXML {
 	case true:
-		System.Addresses.XML = System.ServerProtocol.XML + "://" + System.Domain + "/xmltv/" + System.AppName + ".xml?username=xxx&password=yyy"
+		xml = System.ServerProtocol.XML + "://" + domain + "/xmltv/" + System.AppName + ".xml?username=xxx&password=yyy"
 	case false:
-		System.Addresses.XML = System.ServerProtocol.XML + "://" + System.Domain + "/xmltv/" + System.AppName + ".xml"
+		xml = System.ServerProtocol.XML + "://" + domain + "/xmltv/" + System.AppName + ".xml"
 	}
 
 	if Settings.EpgSource != "XEPG" {
-		System.Addresses.M3U = getErrMsg(2106)
-		System.Addresses.XML = getErrMsg(2106)
+		m3u = getErrMsg(2106)
+		xml = getErrMsg(2106)
 	}
 
-	return
+	domainLock.Lock()
+	System.Domain = domain
+	System.Addresses.DVR, System.Addresses.M3U, System.Addresses.XML = dvr, m3u, xml
+	domainLock.Unlock()
+}
+
+// getDomain returns System.Domain under domainLock.
+func getDomain() string {
+	domainLock.Lock()
+	defer domainLock.Unlock()
+	return System.Domain
+}
+
+// getAddresses returns System.Addresses (DVR, M3U, XML) under domainLock.
+func getAddresses() (dvr, m3u, xml string) {
+	domainLock.Lock()
+	defer domainLock.Unlock()
+	return System.Addresses.DVR, System.Addresses.M3U, System.Addresses.XML
 }
 
 // UUID generieren
@@ -362,7 +379,7 @@ func createStreamingURL(streamingType, playlistID, channelNumber, channelName, u
 
 	}
 
-	streamingURL = fmt.Sprintf("%s://%s/stream/%s", serverProtocol, System.Domain, streamInfo.URLid)
+	streamingURL = fmt.Sprintf("%s://%s/stream/%s", serverProtocol, getDomain(), streamInfo.URLid)
 
 	return
 }

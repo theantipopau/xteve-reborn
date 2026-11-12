@@ -156,3 +156,57 @@ func TestXMLTVMappingAndStreamsConcurrentAccess(t *testing.T) {
 
 	wg.Wait()
 }
+
+// TestGlobalDomainConcurrentAccess exercises System.Domain/System.Addresses:
+// setGlobalDomain rewrites them from r.Host on every Web/WS/API request (the
+// browser loads the UI's assets in parallel), while getDiscover,
+// getCapability and the WS response builder read them. Before domainLock
+// these were unsynchronised string writes, which -race flagged and which
+// can tear. Also checks readers only ever see a complete, consistent value.
+func TestGlobalDomainConcurrentAccess(t *testing.T) {
+
+	var hosts = []string{"10.0.0.1:34400", "tuner.local:34400", "[::1]:34400", "xteve.example.com"}
+	setGlobalDomain(hosts[0])
+
+	var wg sync.WaitGroup
+
+	// Writers: mirror Web()/WS()/API() handling parallel requests.
+	for w := 0; w < 4; w++ {
+		wg.Add(1)
+		go func(n int) {
+			defer wg.Done()
+			for i := 0; i < 200; i++ {
+				setGlobalDomain(hosts[(n+i)%len(hosts)])
+			}
+		}(w)
+	}
+
+	// Readers: mirror the HDHR endpoints and the WS defaults builder.
+	for r := 0; r < 4; r++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for i := 0; i < 200; i++ {
+				if _, err := getDiscover(); err != nil {
+					t.Error(err)
+				}
+				if _, err := getCapability(); err != nil {
+					t.Error(err)
+				}
+
+				var domain = getDomain()
+				var known bool
+				for _, h := range hosts {
+					known = known || domain == h
+				}
+				if !known {
+					t.Errorf("getDomain() = %q, not one of the written hosts", domain)
+				}
+
+				_, _, _ = getAddresses()
+			}
+		}()
+	}
+
+	wg.Wait()
+}

@@ -45,7 +45,7 @@ func buildXEPG(background bool) {
 		return
 	}
 
-	images, err := imgcache.New(System.Folder.ImagesCache, fmt.Sprintf("%s://%s/images/", System.ServerProtocol.WEB, System.Domain), Settings.CacheImages)
+	images, err := imgcache.New(System.Folder.ImagesCache, fmt.Sprintf("%s://%s/images/", System.ServerProtocol.WEB, getDomain()), Settings.CacheImages)
 	if err != nil {
 		ShowError(err, 0)
 	}

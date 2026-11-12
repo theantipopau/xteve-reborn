@@ -42,7 +42,7 @@ func getCapability() (xmlContent []byte, err error) {
 	var buffer bytes.Buffer
 
 	capability.Xmlns = "urn:schemas-upnp-org:device-1-0"
-	capability.URLBase = System.ServerProtocol.WEB + "://" + System.Domain
+	capability.URLBase = System.ServerProtocol.WEB + "://" + getDomain()
 
 	capability.SpecVersion.Major = 1
 	capability.SpecVersion.Minor = 0
@@ -71,14 +71,15 @@ func getDiscover() (jsonContent []byte, err error) {
 
 	var discover Discover
 
-	discover.BaseURL = System.ServerProtocol.WEB + "://" + System.Domain
+	domain := getDomain()
+	discover.BaseURL = System.ServerProtocol.WEB + "://" + domain
 	discover.DeviceAuth = System.AppName
 	discover.DeviceID = System.DeviceID
 	discover.FirmwareName = "bin_" + System.Version
 	discover.FirmwareVersion = System.Version
 	discover.FriendlyName = System.Name
 
-	discover.LineupURL = fmt.Sprintf("%s://%s/lineup.json", System.ServerProtocol.DVR, System.Domain)
+	discover.LineupURL = fmt.Sprintf("%s://%s/lineup.json", System.ServerProtocol.DVR, domain)
 	discover.Manufacturer = "Golang"
 	discover.ModelNumber = System.Version
 	discover.TunerCount = Settings.Tuner
@@ -167,7 +168,7 @@ func getLineup() (jsonContent []byte, err error) {
 				var stream LineupStream
 				stream.GuideName = xepgChannel.XName
 				stream.GuideNumber = xepgChannel.XChannelID
-				//stream.URL = fmt.Sprintf("%s://%s/stream/%s-%s", System.ServerProtocol.DVR, System.Domain, xepgChannel.FileM3UID, base64.StdEncoding.EncodeToString([]byte(xepgChannel.URL)))
+				//stream.URL = fmt.Sprintf("%s://%s/stream/%s-%s", System.ServerProtocol.DVR, getDomain(), xepgChannel.FileM3UID, base64.StdEncoding.EncodeToString([]byte(xepgChannel.URL)))
 				stream.URL, err = createStreamingURL("DVR", xepgChannel.FileM3UID, xepgChannel.XChannelID, xepgChannel.XName, xepgChannel.URL, xepgChannel.XBackupChannel1, xepgChannel.XBackupChannel2, xepgChannel.XBackupChannel3)
 				if err == nil {
 					lineup = append(lineup, stream)
