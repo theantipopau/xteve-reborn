@@ -57,9 +57,9 @@ jobs:
       - name: verify compiled JS matches ts/
         run: |
           cd ts
-          npx --yes typescript@5.6.3 tsc *.ts --outDir ../html/js/
+          npx --yes -p typescript@5.6.3 tsc *.ts --outDir ../html/js/
           cd ..
           if ! git diff --exit-code html/js; then
-            echo "html/js is out of date with ts/: run 'cd ts && npx typescript@5.6.3 tsc *.ts --outDir ../html/js/', then 'go run ./tools/verify-embedded-assets', and commit both."
+            echo "html/js is out of date with ts/: run 'cd ts && npx -p typescript@5.6.3 tsc *.ts --outDir ../html/js/', then 'go run ./tools/verify-embedded-assets', and commit both."
             exit 1
           fi

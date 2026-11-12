@@ -65,8 +65,12 @@ docs site still describe 3.0.5; update them when tagging. Fixes from a whole-pro
 
 - CI, Jellyfin and Release workflows take the Go version from `go.mod` (they said 1.24 while `go.mod` says
   1.26).
-- CI now compiles `ts/` with TypeScript 5.6.3 and fails if `html/js` differs. `ts/compileJS.sh` uses the same
-  pinned version. The current tree compiles with no errors and no diff.
+- CI now compiles `ts/` with TypeScript 5.6.3 (`npx -p typescript@5.6.3 tsc`) and fails on a type error or
+  if `html/js` differs. `ts/compileJS.sh` uses the same pinned version. The first push of this check failed:
+  the `npx typescript@5.6.3 tsc` form does not run `tsc`, and the three type errors already in
+  `ts/base_ts.ts` made `tsc` exit 2. Fixed: the textarea in `legacyCopy` is typed with a cast (same JS), and
+  `xValue == NaN` in `sortTable`, which is always false, is removed (same behaviour; one line of
+  `html/js/base_ts.js` and `src/webUI.go` change). `tsc` now exits 0 with no diff.
 
 ### Checked, no change
 

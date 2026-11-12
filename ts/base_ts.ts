@@ -27,7 +27,7 @@ function copyTextToClipboard(text:string):void {
   }
 
   function legacyCopy():boolean {
-    var textarea = document.createElement("TEXTAREA")
+    var textarea = document.createElement("TEXTAREA") as HTMLTextAreaElement
     textarea.value = text
     textarea.style.position = "fixed"
     textarea.style.opacity = "0"
@@ -417,7 +417,7 @@ function sortTable(column) {
         default: console.log(x.childNodes[0].tagName);
       }
 
-      if (xValue == "" || xValue == NaN) {
+      if (xValue == "") {
 
         xValue = i
         sortObj[i] = rows[i];
